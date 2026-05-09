@@ -1,0 +1,10 @@
+{
+  "name": "Creator",
+  "logo": "/uploads/1778247604024-500468391.png",
+  "backgroundColor": "#963678",
+  "backgroundColorLight": "#7e4949",
+  "backgroundColorDark": "#0b50da",
+  "accentColorLight": "#09f162",
+  "accentColorDark": "#f2024a",
+  "maintenance": false
+}

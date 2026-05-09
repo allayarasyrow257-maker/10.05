@@ -1,0 +1,10 @@
+node_modules/
+.next/
+.env
+.env.local
+dist/
+uploads/*
+!uploads/.gitkeep
+*.log
+*.zip
+backend/uploads/

@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Table {
+  id        Int      @id @default(autoincrement())
+  number    Int      @unique
+  tableCode String   @unique @default("") // 8-char random code shown to customer
+  name      String?
+  tabletPin String?  // 4-6 digit PIN for tablet mode access
+  status    String   @default("available") // available, occupied, reserved
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+  giftsReceived Gift[] @relation("ReceiverTable")
+  giftsSent     Gift[] @relation("SenderTable")
+}
+
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      Json      // { en: "Drinks", tr: "İçecekler", ar: "مشروبات" }
+  image     String?
+  icon      String?   // Small pill icon shown on the customer category tabs
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+}
+
+model Product {
+  id          Int         @id @default(autoincrement())
+  name        Json        // { en: "Cola", tr: "Kola", ar: "كولا" }
+  description Json?       // multi-language description
+  price       Decimal     @db.Decimal(10, 2)
+  image       String?
+  categoryId  Int
+  category    Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  available   Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  orderItems  OrderItem[]
+  comboItems  ComboItem[]
+  giftItems   Gift[]
+}
+
+model Combo {
+  id          Int         @id @default(autoincrement())
+  name        Json        // multi-language
+  description Json?
+  price       Decimal     @db.Decimal(10, 2)
+  image       String?
+  available   Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  items       ComboItem[]
+  orderItems  OrderItem[]
+}
+
+model ComboItem {
+  id        Int     @id @default(autoincrement())
+  comboId   Int
+  productId Int
+  quantity  Int     @default(1)
+  combo     Combo   @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Order {
+  id           Int         @id @default(autoincrement())
+  tableId      Int
+  table        Table       @relation(fields: [tableId], references: [id])
+  status       String      @default("pending") // pending, preparing, ready, delivered, cancelled
+  total        Decimal     @db.Decimal(10, 2)
+  notes        String?
+  source       String      @default("qr") // qr, tablet
+  sessionId    String?     // Random 8-char session identifier for the customer
+  billClosedAt DateTime?   // Set when the bill is closed; orders with NULL belong to the current customer session
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  items        OrderItem[]
+
+  @@index([tableId, billClosedAt])
+}
+
+model OrderItem {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  productId Int?
+  comboId   Int?
+  quantity  Int      @default(1)
+  price     Decimal  @db.Decimal(10, 2)
+  notes     String?
+  isGift    Boolean  @default(false)
+  delivered Boolean  @default(false)
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product? @relation(fields: [productId], references: [id])
+  combo     Combo?   @relation(fields: [comboId], references: [id])
+}
+
+model Gift {
+  id              Int      @id @default(autoincrement())
+  senderTableId   Int
+  receiverTableId Int
+  productId       Int
+  status          String   @default("pending") // pending, accepted, rejected
+  message         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  senderTable     Table    @relation("SenderTable", fields: [senderTableId], references: [id])
+  receiverTable   Table    @relation("ReceiverTable", fields: [receiverTableId], references: [id])
+  product         Product  @relation(fields: [productId], references: [id])
+}
+
+model Admin {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
