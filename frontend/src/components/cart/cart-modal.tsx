@@ -11,8 +11,6 @@ import {
   CheckCircle,
   Sparkles,
   ShoppingCart,
-  Receipt,
-  Lock,
 } from "lucide-react";
 import { useCartStore } from "@/store/cart-store";
 import { getLocalizedName, formatCurrency } from "@/lib/utils";
@@ -41,12 +39,7 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
     updateQuantity,
     removeItem,
     removeByCartItemId,
-    lockItemsAfterOrder,
     clearCart,
-    markBillClosed,
-    acknowledgeClosedBill,
-    billClosedAt,
-    getTotal,
     tableId,
     sessionId,
     language,
@@ -62,45 +55,6 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
     setMounted(true);
   }, []);
 
-  const [billCountdown, setBillCountdown] = React.useState<number | null>(null);
-
-  // Listen for bill-closed event from admin
-  React.useEffect(() => {
-    const socket = getSocket();
-    let countdownInterval: ReturnType<typeof setInterval> | null = null;
-    let autoCloseTimer: ReturnType<typeof setTimeout> | null = null;
-
-    socket.on("bill-closed", () => {
-      markBillClosed(new Date().toISOString());
-      setConfirmedOrder(null);
-      setBillCountdown(5);
-
-      // Countdown ticker
-      countdownInterval = setInterval(() => {
-        setBillCountdown((prev) => {
-          if (prev === null || prev <= 1) {
-            if (countdownInterval) clearInterval(countdownInterval);
-            return null;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      // Auto-close after 5 seconds
-      autoCloseTimer = setTimeout(() => {
-        acknowledgeClosedBill();
-        setConfirmedOrder(null);
-        setBillCountdown(null);
-        onClose();
-      }, 5000);
-    });
-
-    return () => {
-      socket.off("bill-closed");
-      if (countdownInterval) clearInterval(countdownInterval);
-      if (autoCloseTimer) clearTimeout(autoCloseTimer);
-    };
-  }, [markBillClosed, acknowledgeClosedBill, onClose]);
 
   const lang = mounted ? language : "en";
 
@@ -185,59 +139,11 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
           : lang === "tr"
             ? "Kapat"
             : "Close",
-    ordered:
-      lang === "tk"
-        ? "Sargyt edildi"
-        : lang === "ru"
-          ? "Заказано"
-          : lang === "tr"
-            ? "Siparis edildi"
-            : "Ordered",
-    billClosed:
-      lang === "tk"
-        ? "Hasap ýapyldy"
-        : lang === "ru"
-          ? "Счёт закрыт"
-          : lang === "tr"
-            ? "Hesap kapatildi"
-            : "Bill Closed",
-    billClosedDesc:
-      lang === "tk"
-        ? "Sargydyňyz tölendi we hasap ýapyldy. Sag boluň!"
-        : lang === "ru"
-          ? "Ваш заказ оплачен и счёт закрыт. Спасибо!"
-          : lang === "tr"
-            ? "Siparisiniz odenmis ve hesap kapatilmistir. Tesekkurler!"
-            : "Your order has been settled and the bill is closed. Thank you!",
-    paid:
-      lang === "tk"
-        ? "Tölendi"
-        : lang === "ru"
-          ? "Оплачено"
-          : lang === "tr"
-            ? "Odendi"
-            : "Paid",
-    closedAtLabel:
-      lang === "tk"
-        ? "Ýapylan wagty"
-        : lang === "ru"
-          ? "Закрыт в"
-          : lang === "tr"
-            ? "Kapatildi"
-            : "Closed at",
-    gotIt:
-      lang === "tk"
-        ? "Düşündim"
-        : lang === "ru"
-          ? "Понятно"
-          : lang === "tr"
-            ? "Anladim"
-            : "Got it",
+
   };
 
-  // Separate active and ordered items
+  // Active (not-yet-ordered) items only
   const activeItems = items.filter((item) => item.status !== "ordered");
-  const orderedItems = items.filter((item) => item.status === "ordered");
 
   const handleSubmitOrder = async () => {
     if (!tableId || activeItems.length === 0) return;
@@ -297,17 +203,6 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
 
   const totalItems = activeItems.reduce((sum, item) => sum + item.quantity, 0);
 
-  const closedBillTotal = orderedItems.reduce(
-    (t, i) => t + i.price * i.quantity,
-    0,
-  );
-
-  const handleAcknowledgeClosedBill = () => {
-    acknowledgeClosedBill();
-    setConfirmedOrder(null);
-    onClose();
-  };
-
   const cartFooter = confirmedOrder ? (
     <div className="space-y-3">
       <div className="flex justify-between items-center">
@@ -318,37 +213,6 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
       </div>
       <Button onClick={handleClose} className="w-full h-12">
         {labels.close}
-      </Button>
-    </div>
-  ) : billClosedAt ? (
-    <div className="space-y-3">
-      <div className="flex justify-between items-center">
-        <span className="text-sm text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
-          <Receipt size={14} />
-          {labels.paid}
-        </span>
-        <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-          {formatCurrency(closedBillTotal)}
-        </span>
-      </div>
-      <Button
-        onClick={handleAcknowledgeClosedBill}
-        className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white relative overflow-hidden"
-      >
-        <CheckCircle size={18} className="mr-2" />
-        {labels.gotIt}
-        {billCountdown !== null && (
-          <span className="ml-2 inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/20 text-xs font-bold">
-            {billCountdown}
-          </span>
-        )}
-        {/* Auto-close progress bar */}
-        {billCountdown !== null && (
-          <span
-            className="absolute bottom-0 left-0 h-1 bg-white/40 transition-all duration-1000 ease-linear"
-            style={{ width: `${((billCountdown) / 5) * 100}%` }}
-          />
-        )}
       </Button>
     </div>
   ) : activeItems.length > 0 ? (
@@ -440,124 +304,6 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
             >
               {labels.preparing}
             </motion.p>
-          </motion.div>
-        ) : billClosedAt ? (
-          <motion.div
-            key="bill-closed"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="space-y-4"
-          >
-            {/* Closed-bill banner — visually distinct from "Ordered" section */}
-            <div className="rounded-2xl border-2 border-emerald-500 bg-gradient-to-br from-emerald-50 to-emerald-100/60 dark:from-emerald-500/10 dark:to-emerald-500/5 dark:border-emerald-500/40 p-5 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 flex-shrink-0">
-                  <Receipt size={22} className="text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-bold text-emerald-700 dark:text-emerald-300 mb-0.5">
-                    {labels.billClosed}
-                  </h3>
-                  <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80 mb-2">
-                    {labels.billClosedDesc}
-                  </p>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/70 dark:bg-emerald-950/40 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-500/30">
-                    <Lock size={11} />
-                    {labels.closedAtLabel}{" "}
-                    {new Date(billClosedAt).toLocaleString(undefined, {
-                      year: "numeric",
-                      month: "short",
-                      day: "2-digit",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </div>
-                  {billCountdown !== null && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <div className="flex-1 h-1.5 rounded-full bg-emerald-200 dark:bg-emerald-800 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-emerald-500 transition-all duration-1000 ease-linear"
-                          style={{ width: `${((billCountdown) / 5) * 100}%` }}
-                        />
-                      </div>
-                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
-                        {billCountdown}s
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Settled items list */}
-            {orderedItems.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-                    <CheckCircle size={12} />
-                    {labels.paid} ·{" "}
-                    {orderedItems.reduce((s, i) => s + i.quantity, 0)}{" "}
-                    {labels.items}
-                  </span>
-                  <div className="flex-1 h-px bg-emerald-200 dark:bg-emerald-500/20" />
-                </div>
-
-                <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
-                  {orderedItems.map((item, index) => (
-                    <div
-                      key={item.cartItemId}
-                      className={`p-3 rounded-xl border bg-white/60 dark:bg-emerald-500/5 ${
-                        item.isCombo || item.comboId
-                          ? "border-amber-200 dark:border-amber-500/20"
-                          : "border-emerald-200 dark:border-emerald-500/20"
-                      } opacity-90`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-zinc-100 dark:bg-white/5 relative">
-                          {item.image ? (
-                            <img
-                              src={getImageUrl(item.image)}
-                              alt=""
-                              className="w-full h-full object-cover grayscale-[20%]"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <ShoppingBag
-                                size={16}
-                                className="text-zinc-300 dark:text-zinc-600"
-                              />
-                            </div>
-                          )}
-                          <div className="absolute inset-0 flex items-center justify-center bg-emerald-900/20">
-                            <CheckCircle
-                              size={20}
-                              className="text-white drop-shadow"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-xs truncate">
-                            {getLocalizedName(item.name, language)}
-                          </p>
-                          {(item.isCombo || item.comboId) && (
-                            <Badge className="mt-1 bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 border-none text-[8px] px-1.5 py-0">
-                              Combo
-                            </Badge>
-                          )}
-                          <p className="text-xs font-semibold mt-0.5 text-emerald-600 dark:text-emerald-400">
-                            {formatCurrency(item.price * item.quantity)}
-                          </p>
-                        </div>
-                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-200 dark:bg-emerald-500/30 text-emerald-700 dark:text-emerald-300 shrink-0">
-                          ×{item.quantity}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </motion.div>
         ) : activeItems.length === 0 ? (
           <motion.div key="empty" className="text-center py-16 px-4">

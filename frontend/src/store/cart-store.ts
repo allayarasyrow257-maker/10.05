@@ -86,9 +86,9 @@ function loadCart(tableId: number | null): CartItem[] {
 
 function loadLanguage(tableId: number | null): string {
   try {
-    return localStorage.getItem(getLangKey(tableId)) || "en";
+    return localStorage.getItem(getLangKey(tableId)) || "ru";
   } catch {
-    return "en";
+    return "ru";
   }
 }
 
@@ -156,7 +156,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   tableNumber: null,
   tableCode: null,
   sessionId: null,
-  language: "en",
+  language: "ru",
   billClosedAt: null,
   _hydrated: false,
 
@@ -309,7 +309,11 @@ export const useCartStore = create<CartState>((set, get) => ({
       sessionStorage.setItem(storageKey, freshId);
       newSessionId = freshId;
     }
-    set({ items: [], billClosedAt: null, ...(newSessionId ? { sessionId: newSessionId } : {}) });
+    set({
+      items: [],
+      billClosedAt: null,
+      ...(newSessionId ? { sessionId: newSessionId } : {}),
+    });
   },
 
   setOrderedItemsFromBackend: (orderedItems) => {

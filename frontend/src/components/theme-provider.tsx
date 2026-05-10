@@ -1,8 +1,14 @@
-'use client';
+"use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 
-type Theme = 'light' | 'dark';
+type Theme = "light" | "dark";
 
 interface ThemeContextType {
   theme: Theme;
@@ -11,17 +17,17 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: 'dark',
+  theme: "dark",
   toggleTheme: () => {},
   setTableId: () => {},
 });
 
 function getStorageKey(tableId: string | null): string {
-  return tableId ? `theme_${tableId}` : 'theme';
+  return tableId ? `theme_${tableId}` : "theme";
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('light');
+  const [theme, setTheme] = useState<Theme>("light");
   const [tableId, setTableIdState] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
@@ -32,9 +38,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const stored = localStorage.getItem(key) as Theme | null;
     if (stored) {
       setTheme(stored);
-      document.documentElement.classList.toggle('dark', stored === 'dark');
+      document.documentElement.classList.toggle("dark", stored === "dark");
     } else {
-      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove("dark");
     }
     setHydrated(true);
   }, [hydrated]);
@@ -46,21 +52,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const stored = localStorage.getItem(key) as Theme | null;
     if (stored) {
       setTheme(stored);
-      document.documentElement.classList.toggle('dark', stored === 'dark');
+      document.documentElement.classList.toggle("dark", stored === "dark");
     } else {
       // No preference saved for this table yet — keep current theme
       // and save it so it's isolated from now on
-      document.documentElement.classList.toggle('dark', true);
-      setTheme('dark');
+      document.documentElement.classList.toggle("dark", false);
+      setTheme("light");
     }
   }, []);
 
   const toggleTheme = useCallback(() => {
-    const next = theme === 'dark' ? 'light' : 'dark';
+    const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
     const key = getStorageKey(tableId);
     localStorage.setItem(key, next);
-    document.documentElement.classList.toggle('dark', next === 'dark');
+    document.documentElement.classList.toggle("dark", next === "dark");
   }, [theme, tableId]);
 
   return (

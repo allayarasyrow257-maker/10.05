@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { api, getImageUrl } from '@/lib/api';
-import { useCartStore } from '@/store/cart-store';
-import { getLocalizedName } from '@/lib/utils';
-import { useTheme } from '@/components/theme-provider';
-import { Skeleton } from '@/components/ui/skeleton';
+import * as React from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { api, getImageUrl } from "@/lib/api";
+import { useCartStore } from "@/store/cart-store";
+import { getLocalizedName } from "@/lib/utils";
+import { useTheme } from "@/components/theme-provider";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sun,
   Moon,
@@ -21,8 +21,8 @@ import {
   IceCream,
   ChefHat,
   Leaf,
-  BellRing
-} from 'lucide-react';
+  BellRing,
+} from "lucide-react";
 
 interface Category {
   id: number;
@@ -41,34 +41,34 @@ interface CafeSettings {
 }
 
 const languages = [
-  { code: 'en', name: 'English', flag: '🇬🇧' },
-  { code: 'tr', name: 'Turkce', flag: '🇹🇷' },
-  { code: 'tk', name: 'Turkmen', flag: '🇹🇲' },
-  { code: 'ru', name: 'Русский', flag: '🇷🇺' },
+  { code: "en", name: "English", flag: "🇬🇧" },
+  { code: "tr", name: "Turkce", flag: "🇹🇷" },
+  { code: "tk", name: "Turkmen", flag: "🇹🇲" },
+  { code: "ru", name: "Русский", flag: "🇷🇺" },
 ];
 
 const categoryIcons: Record<string, any> = {
-  'Hot Drinks': Coffee,
-  'Starters': ChefHat,
-  'Main Course': Utensils,
-  'Burgers': UtensilsCrossed,
-  'Pizza': Pizza,
-  'Salads': Leaf,
-  'Desserts': IceCream,
-  'Drinks': GlassWater,
-  'default': Utensils
+  "Hot Drinks": Coffee,
+  Starters: ChefHat,
+  "Main Course": Utensils,
+  Burgers: UtensilsCrossed,
+  Pizza: Pizza,
+  Salads: Leaf,
+  Desserts: IceCream,
+  Drinks: GlassWater,
+  default: Utensils,
 };
 
 function getCategoryIcon(name: string) {
-  return categoryIcons[name] || categoryIcons['default'];
+  return categoryIcons[name] || categoryIcons["default"];
 }
 
-function getContrastColor(hex: string): 'light' | 'dark' {
+function getContrastColor(hex: string): "light" | "dark" {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? 'dark' : 'light';
+  return luminance > 0.5 ? "dark" : "light";
 }
 
 interface CategoryPageProps {
@@ -90,13 +90,13 @@ export function CategoryPage({ onSelectCategory }: CategoryPageProps) {
     const fetchData = async () => {
       try {
         const [cats, settings] = await Promise.all([
-          api.get<Category[]>('/menu/categories'),
-          api.get<CafeSettings>('/admin/settings').catch(() => ({})),
+          api.get<Category[]>("/menu/categories"),
+          api.get<CafeSettings>("/admin/settings").catch(() => ({})),
         ]);
         setCategories(cats);
         setCafeSettings(settings);
       } catch (error) {
-        console.error('Failed to fetch categories:', error);
+        console.error("Failed to fetch categories:", error);
       } finally {
         setLoading(false);
       }
@@ -110,45 +110,75 @@ export function CategoryPage({ onSelectCategory }: CategoryPageProps) {
         setLangOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const currentLang = languages.find((l) => l.code === (mounted ? language : 'en')) || languages[0];
+  const currentLang =
+    languages.find((l) => l.code === (mounted ? language : "ru")) ||
+    languages[0];
 
   const tableLabel =
-    (mounted ? language : 'en') === 'tk' ? 'Stol' :
-      (mounted ? language : 'en') === 'ru' ? 'Стол' :
-        (mounted ? language : 'en') === 'tr' ? 'Masa' : 'Table';
+    (mounted ? language : "ru") === "tk"
+      ? "Stol"
+      : (mounted ? language : "ru") === "ru"
+        ? "Стол"
+        : (mounted ? language : "ru") === "tr"
+          ? "Masa"
+          : "Table";
 
   const welcomeLabel =
-    (mounted ? language : 'en') === 'tk' ? 'Hoş geldiňiz' :
-      (mounted ? language : 'en') === 'ru' ? 'Добро пожаловать' :
-        (mounted ? language : 'en') === 'tr' ? 'Hoş geldiniz' : 'WELCOME';
+    (mounted ? language : "ru") === "tk"
+      ? "Hoş geldiňiz"
+      : (mounted ? language : "ru") === "ru"
+        ? "Добро пожаловать"
+        : (mounted ? language : "ru") === "tr"
+          ? "Hoş geldiniz"
+          : "WELCOME";
 
   const titleLabel =
-    (mounted ? language : 'en') === 'tk' ? 'Sizi görmek begendirýär!' :
-      (mounted ? language : 'en') === 'ru' ? 'Рады вас видеть!' :
-        (mounted ? language : 'en') === 'tr' ? 'Sizi görmek güzel!' : 'Good to see you!';
+    (mounted ? language : "ru") === "tk"
+      ? "Sizi görmek begendirýär!"
+      : (mounted ? language : "ru") === "ru"
+        ? "Рады вас видеть!"
+        : (mounted ? language : "ru") === "tr"
+          ? "Sizi görmek güzel!"
+          : "Good to see you!";
 
   const subtitleLabel =
-    (mounted ? language : 'en') === 'tk' ? 'Näme sargyt etmek isleýärsiňiz?' :
-      (mounted ? language : 'en') === 'ru' ? 'Что бы вы хотели заказать?' :
-        (mounted ? language : 'en') === 'tr' ? 'Ne sipariş etmek istersiniz?' : 'What would you like to order?';
+    (mounted ? language : "ru") === "tk"
+      ? "Näme sargyt etmek isleýärsiňiz?"
+      : (mounted ? language : "ru") === "ru"
+        ? "Что бы вы хотели заказать?"
+        : (mounted ? language : "ru") === "tr"
+          ? "Ne sipariş etmek istersiniz?"
+          : "What would you like to order?";
 
   const itemsLabel =
-    (mounted ? language : 'en') === 'tk' ? 'haryt' :
-      (mounted ? language : 'en') === 'ru' ? 'товаров' :
-        (mounted ? language : 'en') === 'tr' ? 'ürün' : 'items';
+    (mounted ? language : "ru") === "tk"
+      ? "haryt"
+      : (mounted ? language : "ru") === "ru"
+        ? "товаров"
+        : (mounted ? language : "ru") === "tr"
+          ? "ürün"
+          : "items";
 
-  const activeBg = theme === 'dark' ? cafeSettings.backgroundColorDark : cafeSettings.backgroundColorLight;
-  const activeAccent = theme === 'dark' ? cafeSettings.accentColorDark : cafeSettings.accentColorLight;
+  const activeBg =
+    theme === "dark"
+      ? cafeSettings.backgroundColorDark
+      : cafeSettings.backgroundColorLight;
+  const activeAccent =
+    theme === "dark"
+      ? cafeSettings.accentColorDark
+      : cafeSettings.accentColorLight;
 
   React.useEffect(() => {
     if (!activeAccent) return;
     const root = document.documentElement;
-    root.style.setProperty('--accent-color', activeAccent);
-    return () => { root.style.removeProperty('--accent-color'); };
+    root.style.setProperty("--accent-color", activeAccent);
+    return () => {
+      root.style.removeProperty("--accent-color");
+    };
   }, [activeAccent]);
 
   if (loading) {
@@ -186,11 +216,13 @@ export function CategoryPage({ onSelectCategory }: CategoryPageProps) {
       {/* Header */}
       <header className="flex-shrink-0 px-4 pt-2 pb-2 sticky top-0 z-30 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md">
         <div className="max-w-8xl mx-auto flex items-center justify-between">
-
           {/* Left - Table Indicator */}
           {tableId ? (
             <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white dark:bg-white/5 border border-black/5 dark:border-white/10 shadow-sm">
-              <Utensils size={14} style={{ color: 'var(--accent-color, #f97316)' }} />
+              <Utensils
+                size={14}
+                style={{ color: "var(--accent-color, #f97316)" }}
+              />
               <span className="text-sm font-bold">
                 {tableLabel} {tableId}
               </span>
@@ -201,13 +233,12 @@ export function CategoryPage({ onSelectCategory }: CategoryPageProps) {
 
           {/* Right - Notification, Theme, Language */}
           <div className="flex items-center gap-2">
-
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
               className="w-10 h-10 rounded-full flex items-center justify-center bg-white dark:bg-white/5 border border-black/5 dark:border-white/10 shadow-sm active:scale-95 transition-all"
             >
-              {theme === 'dark' ? (
+              {theme === "dark" ? (
                 <Sun size={18} className="text-yellow-500" />
               ) : (
                 <Moon size={18} className="text-zinc-500" />
@@ -221,7 +252,10 @@ export function CategoryPage({ onSelectCategory }: CategoryPageProps) {
                 className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white dark:bg-white/5 border border-black/5 dark:border-white/10 shadow-sm active:scale-95 transition-all text-sm"
               >
                 <span className="text-base">{currentLang.flag}</span>
-                <ChevronDown size={14} className={`text-muted-foreground transition-transform duration-300 ${langOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown
+                  size={14}
+                  className={`text-muted-foreground transition-transform duration-300 ${langOpen ? "rotate-180" : ""}`}
+                />
               </button>
               <AnimatePresence>
                 {langOpen && (
@@ -238,8 +272,11 @@ export function CategoryPage({ onSelectCategory }: CategoryPageProps) {
                           setLanguage(lang.code);
                           setLangOpen(false);
                         }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${language === lang.code ? 'text-purple-600 font-bold bg-purple-50 dark:bg-purple-500/10' : ''
-                          }`}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${
+                          language === lang.code
+                            ? "text-purple-600 font-bold bg-purple-50 dark:bg-purple-500/10"
+                            : ""
+                        }`}
                       >
                         <span className="text-base">{lang.flag}</span>
                         <span>{lang.name}</span>
@@ -250,10 +287,8 @@ export function CategoryPage({ onSelectCategory }: CategoryPageProps) {
               </AnimatePresence>
             </div>
           </div>
-
         </div>
       </header>
-
 
       {/* Hero Section */}
       <section className="flex-shrink-0 px-6 py-16 md:py-24 flex flex-col items-center text-center relative overflow-hidden bg-white dark:bg-zinc-950 min-h-[6vh] md:min-h-0">
@@ -296,7 +331,10 @@ export function CategoryPage({ onSelectCategory }: CategoryPageProps) {
             animate={{ y: 0, opacity: 1 }}
             className=""
           >
-            <span className="text-xs lg:text-2xl lg:pb-6 font-normal tracking-[0.3em] uppercase" style={{ color: 'var(--accent-color, #f97316)' }}>
+            <span
+              className="text-xs lg:text-2xl lg:pb-6 font-normal tracking-[0.3em] uppercase"
+              style={{ color: "var(--accent-color, #f97316)" }}
+            >
               {welcomeLabel}
             </span>
           </motion.div>
@@ -314,7 +352,7 @@ export function CategoryPage({ onSelectCategory }: CategoryPageProps) {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="text-base text-xs md:text-lg text-zinc-400 dark:text-zinc-400 font-medium max-w-lg mx-auto"
+            className="text-base md:text-lg text-zinc-400 dark:text-zinc-400 font-medium max-w-lg mx-auto"
           >
             {subtitleLabel}
           </motion.p>
@@ -322,12 +360,11 @@ export function CategoryPage({ onSelectCategory }: CategoryPageProps) {
       </section>
 
       {/* Category Grid */}
-      <main className="flex-1 px-3 max-w-8xl mx-auto w-full relative z-10 -mt-10 md:-mt-14">
+      <main className="flex-1 px-3 max-w-8xl lg:max-w-6xl mx-auto w-full relative z-10 -mt-10 md:-mt-14">
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 justify-center">
           {categories.map((category, index) => {
             const Icon = getCategoryIcon(category.name.en);
             return (
-
               <motion.button
                 key={category.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -341,12 +378,18 @@ export function CategoryPage({ onSelectCategory }: CategoryPageProps) {
                 {category.image ? (
                   <img
                     src={getImageUrl(category.image)}
-                    alt={getLocalizedName(category.name, mounted ? language : 'en')}
+                    alt={getLocalizedName(
+                      category.name,
+                      mounted ? language : "en",
+                    )}
                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
                 ) : (
                   <div className="absolute inset-0 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                    <Icon size={40} className="text-zinc-300 dark:text-zinc-700" />
+                    <Icon
+                      size={40}
+                      className="text-zinc-300 dark:text-zinc-700"
+                    />
                   </div>
                 )}
 
@@ -356,14 +399,26 @@ export function CategoryPage({ onSelectCategory }: CategoryPageProps) {
                 {/* Bottom overlay content */}
                 <div className="absolute bottom-0 inset-x-0 px-2 pb-2 pt-1 flex items-center gap-2 bg-gradient-to-t dark:from-black/60 from-white/80 dark:to-transparent to-white border-white/20 dark:border-white/10">
                   {/* Icon circle */}
-                  <div className="w-8 h-8 lg:w-10 lg:h-10 md:h-10 md:w-10 rounded-full bg-white/80 dark:bg-black/40 backdrop-blur-sm border-[0.2px] flex items-center justify-center shrink-0 shadow-sm" style={{ borderColor: 'color-mix(in srgb, var(--accent-color, #f97316) 40%, transparent)' }}>
-                    <Icon size={16} style={{ color: 'var(--accent-color, #f97316)' }} />
+                  <div
+                    className="w-8 h-8 lg:w-10 lg:h-10 md:h-10 md:w-10 rounded-full bg-white/80 dark:bg-black/40 backdrop-blur-sm border-[0.2px] flex items-center justify-center shrink-0 shadow-sm"
+                    style={{
+                      borderColor:
+                        "color-mix(in srgb, var(--accent-color, #f97316) 40%, transparent)",
+                    }}
+                  >
+                    <Icon
+                      size={16}
+                      style={{ color: "var(--accent-color, #f97316)" }}
+                    />
                   </div>
 
                   {/* Text */}
                   <div className="flex-1 text-left min-w-0 ps-0 lg:ps-2 ">
                     <h3 className="text-[12px] lg:text-[16px] md:text-[16px] sm:text-[12px] font-bold dark:text-white text-black/60 drop-shadow-sm truncate leading-tight">
-                      {getLocalizedName(category.name, mounted ? language : 'en')}
+                      {getLocalizedName(
+                        category.name,
+                        mounted ? language : "en",
+                      )}
                     </h3>
                     <p className="text-[10px] lg:text-[12px] md:text-[12px] sm:text-[10px] dark:text-white/70 text-gray-400 font-medium">
                       {category.products.length} {itemsLabel}
@@ -371,24 +426,45 @@ export function CategoryPage({ onSelectCategory }: CategoryPageProps) {
                   </div>
 
                   {/* Arrow */}
-                  <div className="w-9 h-9 hidden lg:flex md:flex sm:flex rounded-full bg-white/20 dark:bg-black/40 border-[0.2px] flex items-center justify-center shrink-0 group-hover:bg-white/30 transition-colors" style={{ borderColor: 'color-mix(in srgb, var(--accent-color, #f97316) 40%, transparent)' }}>
-                    <ChevronRight size={16} style={{ color: 'var(--accent-color, #f97316)' }} />
+                  <div
+                    className="w-9 h-9 hidden lg:flex md:flex sm:flex rounded-full bg-white/20 dark:bg-black/40 border-[0.2px] flex items-center justify-center shrink-0 group-hover:bg-white/30 transition-colors"
+                    style={{
+                      borderColor:
+                        "color-mix(in srgb, var(--accent-color, #f97316) 40%, transparent)",
+                    }}
+                  >
+                    <ChevronRight
+                      size={16}
+                      style={{ color: "var(--accent-color, #f97316)" }}
+                    />
                   </div>
                 </div>
               </motion.button>
             );
           })}
         </div>
-      </main >
+      </main>
 
       {/* Decorative footer line */}
-      < footer className="mt-12 flex flex-col items-center" >
-        <div className="flex items-center gap-4" style={{ color: 'color-mix(in srgb, var(--accent-color, #f97316) 30%, transparent)' }}>
+      <footer className="mt-12 flex flex-col items-center">
+        <div
+          className="flex items-center gap-4"
+          style={{
+            color:
+              "color-mix(in srgb, var(--accent-color, #f97316) 30%, transparent)",
+          }}
+        >
           <div className="h-[1px] w-12 bg-current" />
-          <Utensils size={16} style={{ color: 'color-mix(in srgb, var(--accent-color, #f97316) 60%, transparent)' }} />
+          <Utensils
+            size={16}
+            style={{
+              color:
+                "color-mix(in srgb, var(--accent-color, #f97316) 60%, transparent)",
+            }}
+          />
           <div className="h-[1px] w-12 bg-current" />
         </div>
-      </footer >
-    </div >
+      </footer>
+    </div>
   );
 }

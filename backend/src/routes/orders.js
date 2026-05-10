@@ -266,6 +266,31 @@ router.put("/:orderId/items/:itemId/delivered", authenticateToken, async (req, r
   }
 });
 
+// Mark ALL items of an order as delivered (admin)
+router.put("/:orderId/items/deliver-all", authenticateToken, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.orderId);
+
+    await prisma.orderItem.updateMany({
+      where: { orderId },
+      data: { delivered: true },
+    });
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { tableId: true },
+    });
+
+    const io = req.app.get("io");
+    io.to("admin").emit("order-status-updated", { orderId, tableId: order?.tableId });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to mark all items delivered" });
+  }
+});
+
 
 // Close bill - archive current session's orders for a table (admin).
 // Kept for backward-compat; same behavior as POST /api/tables/:id/close-bill.

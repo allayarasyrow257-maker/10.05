@@ -173,8 +173,8 @@ export default function MenuManagementPage() {
   const fetchMenu = async () => {
     try {
       const [data, comboData] = await Promise.all([
-        api.get<Category[]>("/menu/categories"),
-        api.get<Combo[]>("/menu/combos").catch(() => []),
+        api.get<Category[]>("/menu/categories", true),
+        api.get<Combo[]>("/menu/combos", true).catch(() => []),
       ]);
       setCategories(data);
       setCombos(comboData);

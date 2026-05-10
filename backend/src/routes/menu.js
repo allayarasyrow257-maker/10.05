@@ -9,11 +9,13 @@ const prisma = new PrismaClient();
 // Get all categories with products (public)
 router.get('/categories', async (req, res) => {
   try {
+    const authHeader = req.headers['authorization'];
+    const includeAll = !!authHeader;
     const categories = await prisma.category.findMany({
       orderBy: { sortOrder: 'asc' },
       include: {
         products: {
-          where: { available: true },
+          where: includeAll ? undefined : { available: true },
           orderBy: { sortOrder: 'asc' },
         },
       },
@@ -27,8 +29,10 @@ router.get('/categories', async (req, res) => {
 // Get all products (public)
 router.get('/products', async (req, res) => {
   try {
+    const authHeader = req.headers['authorization'];
+    const includeAll = !!authHeader;
     const products = await prisma.product.findMany({
-      where: { available: true },
+      where: includeAll ? undefined : { available: true },
       include: { category: true },
       orderBy: { sortOrder: 'asc' },
     });
@@ -41,8 +45,10 @@ router.get('/products', async (req, res) => {
 // Get combos (public)
 router.get('/combos', async (req, res) => {
   try {
+    const authHeader = req.headers['authorization'];
+    const includeAll = !!authHeader;
     const combos = await prisma.combo.findMany({
-      where: { available: true },
+      where: includeAll ? undefined : { available: true },
       include: {
         items: {
           include: { product: true },

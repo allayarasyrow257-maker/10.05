@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, Bell, X, Sun, Moon, Languages, ChevronDown, Check, ShoppingBag, UtensilsCrossed, Gift } from 'lucide-react';
+import { Menu, Bell, X, Sun, Moon, Languages, ChevronDown, Check, ShoppingBag, UtensilsCrossed, Gift, RefreshCw } from 'lucide-react';
 import { getSocket } from '@/lib/socket';
 import { useTheme } from '@/components/theme-provider';
 import { useCartStore } from '@/store/cart-store';
@@ -253,6 +253,15 @@ export function AdminTopbar({ onMenuToggle }: TopbarProps) {
           <div className="flex-1" />
 
           <div className="flex items-center gap-2">
+            {/* Refresh Button */}
+            <button
+              onClick={() => window.location.reload()}
+              className="p-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10 transition-all border border-transparent hover:border-black/5 dark:hover:border-white/5"
+              title="Refresh page"
+            >
+              <RefreshCw size={20} />
+            </button>
+
             {/* Language Selector */}
             <div className="relative" ref={langRef}>
               <button

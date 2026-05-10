@@ -1,12 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Lock, Eye, EyeOff, Shield } from 'lucide-react';
+import { Lock, Eye, EyeOff, Shield, Tablet, Key } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+interface CafeSettings {
+  tabletPin?: string | null;
+}
 
 export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -15,6 +19,21 @@ export default function SettingsPage() {
   const [showCurrentPw, setShowCurrentPw] = useState(false);
   const [showNewPw, setShowNewPw] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+
+  // Tablet PIN
+  const [currentPin, setCurrentPin] = useState<string | null>(null);
+  const [showCurrentPin, setShowCurrentPin] = useState(false);
+  const [newPin, setNewPin] = useState('');
+  const [showNewPin, setShowNewPin] = useState(false);
+  const [savingPin, setSavingPin] = useState(false);
+  const [pinLoaded, setPinLoaded] = useState(false);
+
+  useEffect(() => {
+    api.get<CafeSettings>('/admin/settings', true).then((data) => {
+      setCurrentPin(data.tabletPin ?? null);
+      setPinLoaded(true);
+    }).catch(() => setPinLoaded(true));
+  }, []);
 
   const handleChangePassword = async () => {
     if (newPassword !== confirmPassword) {
@@ -42,14 +61,122 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSavePin = async () => {
+    if (newPin && !/^\d{4,6}$/.test(newPin)) {
+      toast.error('Tablet PIN must be 4–6 digits');
+      return;
+    }
+    setSavingPin(true);
+    try {
+      const updated = await api.put<CafeSettings>('/admin/settings', { tabletPin: newPin || null }, true);
+      setCurrentPin(updated.tabletPin ?? null);
+      setNewPin('');
+      toast.success(newPin ? 'Tablet PIN updated' : 'Tablet PIN removed');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save PIN');
+    } finally {
+      setSavingPin(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">Manage your account password</p>
+        <p className="text-muted-foreground">Manage password and tablet PIN</p>
       </div>
 
+      {/* ── Global Tablet PIN ── */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <Card>
+          <CardContent>
+            <div className="flex items-center gap-2 mb-4">
+              <Tablet size={20} className="text-blue-400" />
+              <h3 className="text-lg font-semibold">Global Tablet PIN</h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              One PIN unlocks all tables on the tablet page. Leave empty to disable tablet mode.
+            </p>
+
+            {/* Current PIN display */}
+            {pinLoaded && (
+              <div className="mb-4 p-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Key size={15} className="text-muted-foreground flex-shrink-0" />
+                  <span className="text-xs text-muted-foreground">Current PIN:</span>
+                  <span className="font-mono font-bold text-sm">
+                    {currentPin
+                      ? (showCurrentPin ? currentPin : '●'.repeat(currentPin.length))
+                      : <span className="text-muted-foreground italic text-xs">not set</span>
+                    }
+                  </span>
+                </div>
+                {currentPin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPin(!showCurrentPin)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    title={showCurrentPin ? 'Hide PIN' : 'Show PIN'}
+                  >
+                    {showCurrentPin ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">New PIN (4–6 digits)</label>
+                <div className="relative">
+                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type={showNewPin ? 'text' : 'password'}
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={newPin}
+                    onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+                    placeholder="e.g. 1234"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white/5 border border-white/10 focus:outline-none focus:border-blue-500/50 transition-colors text-sm text-center font-bold tracking-[0.3em]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPin(!showNewPin)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showNewPin ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                {currentPin && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => { setNewPin(''); setTimeout(handleSavePin, 0); }}
+                    disabled={savingPin}
+                    className="flex-1"
+                  >
+                    Remove PIN
+                  </Button>
+                )}
+                <Button
+                  onClick={handleSavePin}
+                  disabled={savingPin || (!!newPin && !/^\d{4,6}$/.test(newPin))}
+                  className="flex-1 h-10"
+                >
+                  {savingPin
+                    ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : 'Save PIN'
+                  }
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ── Change Admin Password ── */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
         <Card>
           <CardContent>
             <div className="flex items-center gap-2 mb-4">

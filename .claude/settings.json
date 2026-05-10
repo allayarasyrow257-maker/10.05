@@ -1,5 +1,4 @@
 {
-<<<<<<< HEAD
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "CLAUDE_FLOW_V3_ENABLED": "true",
@@ -23,11 +22,3 @@
     ]
   }
 } 
-=======
-  "permissions": {
-    "allow": [
-      "Bash(npm uninstall:*)"
-    ]
-  }
-}
->>>>>>> 8927fdd41df3b5b094ff22db87ad20aeb3d376c2

@@ -21,22 +21,7 @@ function stripPin(table) {
   return { ...rest, hasTabletPin: !!tabletPin };
 }
 
-// Verify tablet PIN (public)
-router.post('/verify-pin', async (req, res) => {
-  try {
-    const { tableId, pin } = req.body;
-    if (!tableId || !pin) return res.status(400).json({ error: 'tableId and pin are required' });
 
-    const table = await prisma.table.findUnique({ where: { id: tableId } });
-    if (!table) return res.status(404).json({ error: 'Table not found' });
-    if (!table.tabletPin) return res.status(400).json({ error: 'This table has no tablet PIN configured' });
-    if (table.tabletPin !== pin) return res.status(401).json({ error: 'Invalid PIN' });
-
-    res.json(stripPin(table));
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to verify PIN' });
-  }
-});
 
 // Lookup table by code or number
 router.get('/lookup/:param', async (req, res) => {
@@ -67,6 +52,7 @@ router.get('/lookup/:param', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const tables = await prisma.table.findMany({
+      where: { status: { not: 'deleted' } },
       orderBy: { number: 'asc' },
       include: {
         orders: {
@@ -237,8 +223,17 @@ router.put('/:id', authenticateToken, async (req, res) => {
 // Delete table (admin)
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
-    await prisma.table.delete({ where: { id: parseInt(req.params.id) } });
-    res.json({ message: 'Table deleted' });
+    const tableId = parseInt(req.params.id);
+    // Soft delete: keep the table and its revenue history, but free up its number and code
+    await prisma.table.update({
+      where: { id: tableId },
+      data: {
+        status: 'deleted',
+        number: -tableId,
+        tableCode: `DEL-${tableId}-${Date.now()}`
+      }
+    });
+    res.json({ message: 'Table softly deleted' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete table' });
   }

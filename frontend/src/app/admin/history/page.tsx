@@ -482,6 +482,7 @@ export default function HistoryPage() {
                       onToggle={() => setExpanded(expanded === bill.key ? null : bill.key)}
                       ts={ts}
                       t={t}
+                      language={language}
                     />
                   ))}
                 </AnimatePresence>
@@ -556,12 +557,14 @@ function BillCard({
   onToggle,
   ts,
   t,
+  language,
 }: {
   bill: Bill;
   expanded: boolean;
   onToggle: () => void;
   ts: (s: string) => string;
   t: (k: any) => string;
+  language: string;
 }) {
   const isOpen = !bill.billClosedAt;
   const closedAt = bill.billClosedAt ? new Date(bill.billClosedAt) : null;
@@ -677,7 +680,7 @@ function BillCard({
           >
             <div className="divide-y divide-black/5 dark:divide-white/5">
               {bill.orders.map((order, idx) => (
-                <OrderInBill key={order.id} order={order} positionInBill={idx + 1} ts={ts} t={t} />
+                <OrderInBill key={order.id} order={order} positionInBill={idx + 1} ts={ts} t={t} language={language} />
               ))}
             </div>
             {/* Bill total footer */}
@@ -699,11 +702,13 @@ function OrderInBill({
   positionInBill,
   ts,
   t,
+  language,
 }: {
   order: Order;
   positionInBill: number;
   ts: (s: string) => string;
   t: (k: any) => string;
+  language: string;
 }) {
   const Icon = STATUS_ICONS[order.status] || Clock;
   const colorClass = STATUS_COLORS[order.status] || STATUS_COLORS.pending;
@@ -750,7 +755,7 @@ function OrderInBill({
           const isCombo = !!item.combo;
           const nameObj = isCombo ? item.combo?.name : item.product?.name;
           const displayName =
-            nameObj?.en || (nameObj ? Object.values(nameObj)[0] : 'Unknown');
+            (nameObj && (nameObj[language] || nameObj['en'] || Object.values(nameObj)[0])) || 'Unknown';
           return (
             <div
               key={item.id}

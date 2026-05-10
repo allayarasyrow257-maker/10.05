@@ -274,6 +274,7 @@ export function MenuContent({ initialCategoryId, onBack }: MenuContentProps) {
       isCombo: true,
       comboId: combo.id,
       comboItems: combo.items,
+      cartItemId: ""
     });
   };
 
@@ -495,34 +496,29 @@ export function MenuContent({ initialCategoryId, onBack }: MenuContentProps) {
                             items
                           </span>
                         </div>
-                        <span className="text-white text-sm font-bold px-3 py-1 rounded-full shadow-lg" style={{ backgroundColor: 'var(--accent-color, #f97316)' }}>
-                          {formatCurrency(parseFloat(combo.price))}
-                        </span>
+                        <div className="flex flex-col items-end">
+                          {(() => {
+                            const individualTotal = combo.items.reduce(
+                              (sum, ci) => sum + parseFloat(ci.product.price) * ci.quantity, 0
+                            );
+                            const comboPrice = parseFloat(combo.price);
+                            if (individualTotal > comboPrice) {
+                              return (
+                                <span className="text-white/80 text-[11px] line-through mb-0.5 pr-1 font-bold drop-shadow-md">
+                                  {formatCurrency(individualTotal)}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                          <span className="text-white text-sm font-bold px-3 py-1 rounded-full shadow-lg" style={{ backgroundColor: 'var(--accent-color, #f97316)' }}>
+                            {formatCurrency(parseFloat(combo.price))}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Price comparison bar */}
-                    {(() => {
-                      const individualTotal = combo.items.reduce(
-                        (sum, ci) => sum + parseFloat(ci.product.price) * ci.quantity, 0
-                      );
-                      const comboPrice = parseFloat(combo.price);
-                      const savings = individualTotal - comboPrice;
-                      if (savings <= 0) return null;
-                      const savingsLabel = lang === "tk" ? "Tygşytlylygyňyz" : lang === "ru" ? "Вы экономите" : lang === "tr" ? "Tasarrufunuz" : "You save";
-                      const separateLabel = lang === "tk" ? "Aýratyn alsaňyz" : lang === "ru" ? "По отдельности" : lang === "tr" ? "Ayrı alsanız" : "Separately";
-                      return (
-                        <div className="px-4 py-2.5 flex items-center justify-between border-t border-black/5 dark:border-white/5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] text-zinc-400">{separateLabel}:</span>
-                            <span className="text-[11px] text-zinc-400 line-through">{formatCurrency(individualTotal)}</span>
-                          </div>
-                          <span className="text-[11px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                            -{formatCurrency(savings)} {savingsLabel.toLowerCase()}
-                          </span>
-                        </div>
-                      );
-                    })()}
+
 
                     <div className="px-4 py-3 flex items-center justify-between dark:text-white border-t border-black/5 dark:border-white/5">
                       <span className="text-xs font-medium text-zinc-400">

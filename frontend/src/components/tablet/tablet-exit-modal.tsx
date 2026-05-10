@@ -27,11 +27,8 @@ export function TabletExitModal({ isOpen, onClose, onSuccess, tableId }: TabletE
 
     setLoading(true);
     try {
-      // Backend verify-pin endpoint
-      await api.post('/tables/verify-pin', {
-        tableId,
-        pin
-      }, false);
+      // Backend verify-tablet-pin endpoint (global PIN)
+      await api.post('/admin/verify-tablet-pin', { pin }, false);
 
       toast.success('PIN Verified');
       onSuccess();

@@ -23,7 +23,8 @@ import {
   Package,
   Sparkles,
   Tablet,
-  Key,
+  Trash2,
+  X,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -196,8 +197,8 @@ function playNewOrderSound() {
       osc.start(start);
       osc.stop(start + 0.4);
     });
-    setTimeout(() => { try { ctx.close(); } catch {} }, 1500);
-  } catch {}
+    setTimeout(() => { try { ctx.close(); } catch { } }, 1500);
+  } catch { }
 }
 
 function playWaiterChime() {
@@ -225,7 +226,7 @@ function playWaiterChime() {
     setTimeout(() => {
       try {
         ctx.close();
-      } catch {}
+      } catch { }
     }, 1500);
   } catch {
     /* audio unavailable / blocked */
@@ -238,10 +239,7 @@ export default function TablesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newTableNumber, setNewTableNumber] = useState("");
   const [newTableName, setNewTableName] = useState("");
-  const [newTablePin, setNewTablePin] = useState("");
-  const [pinEditTable, setPinEditTable] = useState<Table | null>(null);
-  const [pinEditValue, setPinEditValue] = useState("");
-  const [savingPin, setSavingPin] = useState(false);
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
   const [waiterCalls, setWaiterCalls] = useState<Set<number>>(new Set());
   const [qrTable, setQrTable] = useState<Table | null>(null);
   const [expandedTable, setExpandedTable] = useState<number | null>(null);
@@ -257,10 +255,15 @@ export default function TablesPage() {
     LABELS[key][language as keyof (typeof LABELS)[typeof key]] ||
     LABELS[key].en;
 
+  const getLocalizedName = (nameObj: Record<string, string> | undefined): string => {
+    if (!nameObj) return 'Unknown Item';
+    return nameObj[language] || nameObj['en'] || Object.values(nameObj)[0] || 'Unknown Item';
+  };
+
   const persistWaiterCalls = (calls: Set<number>) => {
     try {
       localStorage.setItem(WAITER_CALLS_KEY, JSON.stringify(Array.from(calls)));
-    } catch {}
+    } catch { }
   };
 
   const acceptWaiterCall = (tableId: number) => {
@@ -291,7 +294,7 @@ export default function TablesPage() {
         const arr = JSON.parse(raw) as number[];
         if (Array.isArray(arr) && arr.length) setWaiterCalls(new Set(arr));
       }
-    } catch {}
+    } catch { }
 
     fetchTables();
 
@@ -356,14 +359,12 @@ export default function TablesPage() {
         {
           number: parseInt(newTableNumber),
           name: newTableName || `Table ${newTableNumber}`,
-          tabletPin: newTablePin || undefined,
         },
         true,
       );
       setShowCreate(false);
       setNewTableNumber("");
       setNewTableName("");
-      setNewTablePin("");
       fetchTables();
       toast.success("Table created");
     } catch (error: any) {
@@ -371,24 +372,18 @@ export default function TablesPage() {
     }
   };
 
-  const handleSavePin = async () => {
-    if (!pinEditTable) return;
-    if (pinEditValue && !/^\d{4,6}$/.test(pinEditValue)) {
-      toast.error("PIN must be 4-6 digits");
-      return;
-    }
-    setSavingPin(true);
+  const handleDeleteTable = async (tableId: number) => {
+    if (!confirm("Are you sure you want to delete this table?")) return;
     try {
-      await api.put(`/tables/${pinEditTable.id}`, { tabletPin: pinEditValue || null }, true);
-      toast.success(pinEditValue ? "Tablet PIN updated" : "Tablet PIN removed");
-      setPinEditTable(null);
+      await api.delete(`/tables/${tableId}`, true);
+      toast.success("Table deleted");
       fetchTables();
     } catch (error: any) {
-      toast.error(error.message || "Failed to update PIN");
-    } finally {
-      setSavingPin(false);
+      toast.error(error.message || "Failed to delete table");
     }
   };
+
+
 
   const handleCloseBill = async (table: Table) => {
     const total = table.orders.reduce((s, o) => s + parseFloat(o.total), 0);
@@ -424,7 +419,19 @@ export default function TablesPage() {
   };
 
   const toggleItemDelivered = async (orderId: number, itemId: number, tableId: number) => {
-    // Optimistic UI
+    // Compute — before the update — whether checking this item will make ALL items delivered
+    const currentOrder = tables
+      .flatMap((tb) => tb.orders)
+      .find((o) => o.id === orderId);
+    const currentItem = currentOrder?.items.find((i) => i.id === itemId);
+    const willBeDelivered = !currentItem?.delivered; // the new state after toggle
+    const allWillBeDelivered =
+      willBeDelivered &&
+      currentOrder?.items.every((i) =>
+        i.id === itemId ? true : i.delivered,
+      ) === true;
+
+    // Optimistic UI: toggle the item, and if all done → also flip order status
     setTables((prev) =>
       prev.map((tb) => ({
         ...tb,
@@ -432,6 +439,7 @@ export default function TablesPage() {
           o.id === orderId
             ? {
                 ...o,
+                ...(allWillBeDelivered ? { status: "delivered" } : {}),
                 items: o.items.map((item) =>
                   item.id === itemId ? { ...item, delivered: !item.delivered } : item
                 ),
@@ -440,8 +448,14 @@ export default function TablesPage() {
         ),
       }))
     );
+
     try {
       await api.put(`/orders/${orderId}/items/${itemId}/delivered`, {}, true);
+      // Auto-mark order as delivered when all items are now checked
+      if (allWillBeDelivered && currentOrder?.status !== "delivered") {
+        await api.put(`/orders/${orderId}/status`, { status: "delivered" }, true);
+        toast.success(`All items delivered — Order #${orderId} marked as complete`);
+      }
     } catch (error: any) {
       toast.error(error.message || "Failed to toggle item");
       fetchTables();
@@ -449,18 +463,27 @@ export default function TablesPage() {
   };
 
   const markOrderDelivered = async (orderId: number, tableNumber: number) => {
-    // Optimistic UI: keep the order visible, just flip its status to delivered.
-    // It stays in the active list until "Close Bill" archives the session.
+    // Optimistic UI: flip order status to delivered AND mark all items as delivered.
     setTables((prev) =>
       prev.map((tb) => ({
         ...tb,
         orders: tb.orders.map((o) =>
-          o.id === orderId ? { ...o, status: "delivered" } : o,
+          o.id === orderId
+            ? {
+                ...o,
+                status: "delivered",
+                items: o.items.map((item) => ({ ...item, delivered: true })),
+              }
+            : o,
         ),
       })),
     );
     try {
-      await api.put(`/orders/${orderId}/status`, { status: "delivered" }, true);
+      // Mark all items delivered first, then update order status
+      await Promise.all([
+        api.put(`/orders/${orderId}/items/deliver-all`, {}, true),
+        api.put(`/orders/${orderId}/status`, { status: "delivered" }, true),
+      ]);
       toast.success(`Order #${orderId} delivered (Table ${tableNumber})`);
     } catch (error: any) {
       toast.error(error.message || "Failed to mark delivered");
@@ -603,12 +626,12 @@ export default function TablesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold dark:text-white">{t("tables")}</h1>
           <p className="text-muted-foreground">{t("subtitle")}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="secondary" onClick={downloadAllQR}>
             <Download size={18} className="mr-2" />
             {language === "tk"
@@ -619,7 +642,19 @@ export default function TablesPage() {
                   ? "Tum QR lari Indir"
                   : "Export All QR"}
           </Button>
-          <Button onClick={() => setShowCreate(true)}>
+          <Button 
+            variant={isDeleteMode ? "destructive" : "outline"} 
+            onClick={() => setIsDeleteMode(!isDeleteMode)}
+          >
+            <Trash2 size={18} className="mr-2" />
+            {isDeleteMode ? "Done" : "Remove Table"}
+          </Button>
+          <Button onClick={() => {
+            const nextNum = tables.length > 0 ? Math.max(...tables.map(t => t.number)) + 1 : 1;
+            setNewTableNumber(nextNum.toString());
+            setNewTableName("Table");
+            setShowCreate(true);
+          }}>
             <Plus size={18} className="mr-2" />
             {t("addTable")}
           </Button>
@@ -640,16 +675,28 @@ export default function TablesPage() {
               transition={{ delay: index * 0.05 }}
             >
               <Card
-                className={`relative overflow-hidden transition-all ${
-                  waiterCalls.has(table.id)
+                className={`relative overflow-hidden transition-all ${waiterCalls.has(table.id)
                     ? "border-2 border-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.45)] bg-amber-500/5 animate-pulse"
                     : newOrderTables.has(table.id)
                       ? "border-2 border-emerald-400 shadow-[0_0_25px_rgba(52,211,153,0.4)] bg-emerald-500/5 animate-pulse"
                       : isExpanded
                         ? "border-purple-500/40"
                         : "hover:border-purple-500/20"
-                }`}
+                  }`}
               >
+                {isDeleteMode && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteTable(table.id);
+                    }}
+                    className="absolute top-3 left-3 z-20 flex items-center justify-center w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg transition-all"
+                    title="Delete table"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+
                 {waiterCalls.has(table.id) && (
                   <button
                     onClick={(e) => {
@@ -688,13 +735,12 @@ export default function TablesPage() {
                   >
                     <div className="flex items-center gap-3">
                       <div
-                        className={`relative w-14 h-14 rounded-2xl bg-gradient-to-br ${
-                          waiterCalls.has(table.id)
+                        className={`relative w-14 h-14 rounded-2xl bg-gradient-to-br ${waiterCalls.has(table.id)
                             ? "from-amber-400 to-red-500"
                             : newOrderTables.has(table.id)
                               ? "from-emerald-400 to-green-600"
                               : getStatusColor(table.status)
-                        } flex items-center justify-center shadow-lg flex-shrink-0`}
+                          } flex items-center justify-center shadow-lg flex-shrink-0`}
                       >
                         <span className="text-white text-xl font-bold">
                           {table.number}
@@ -801,9 +847,10 @@ export default function TablesPage() {
                                     key={order.id}
                                     className={`glass rounded-xl p-3 transition-all ${isDelivered ? "opacity-50" : ""}`}
                                   >
-                                    <div className="flex items-center justify-between mb-2">
-                                      <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                      <div className="flex flex-wrap items-center gap-2">
                                         <label
+                                          htmlFor={`order-delivered-${order.id}`}
                                           className="relative flex items-center cursor-pointer group/cb"
                                           title={
                                             isDelivered
@@ -813,6 +860,7 @@ export default function TablesPage() {
                                           onClick={(e) => e.stopPropagation()}
                                         >
                                           <input
+                                            id={`order-delivered-${order.id}`}
                                             type="checkbox"
                                             checked={isDelivered}
                                             disabled={isDelivered}
@@ -822,9 +870,9 @@ export default function TablesPage() {
                                                 table.number,
                                               )
                                             }
-                                            className="peer sr-only"
+                                            className="sr-only"
                                           />
-                                          <span className="w-5 h-5 rounded-md border-2 border-white/20 bg-white/5 flex items-center justify-center transition-all peer-checked:bg-emerald-500 peer-checked:border-emerald-500 group-hover/cb:border-emerald-400">
+                                          <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all group-hover/cb:border-emerald-400 ${isDelivered ? "bg-emerald-500 border-emerald-500" : "dark:border-white/20 border-white/80 bg-white/5"}`}>
                                             {isDelivered && (
                                               <CheckCircle
                                                 size={12}
@@ -877,13 +925,9 @@ export default function TablesPage() {
                                     </div>
                                     <div className="space-y-1.5 mt-1">
                                       {order.items.map((item) => {
-                                        const itemName = item.combo?.name?.en ||
-                                          (item.combo?.name
-                                            ? Object.values(item.combo.name)[0]
-                                            : item.product?.name?.en ||
-                                              (item.product?.name
-                                                ? Object.values(item.product.name)[0]
-                                                : "Unknown Item"));
+                                        const itemName = getLocalizedName(
+                                          item.combo?.name || item.product?.name
+                                        );
                                         const isCombo = !!item.combo;
                                         const isGiftItem = item.isGift;
                                         const isItemDelivered = item.delivered;
@@ -908,19 +952,18 @@ export default function TablesPage() {
                                                       onChange={() => toggleItemDelivered(order.id, item.id, table.id)}
                                                       className="peer sr-only"
                                                     />
-                                                    <span className={`w-[18px] h-[18px] rounded-md border-2 flex items-center justify-center transition-all ${
-                                                      isItemDelivered
+                                                    <span className={`w-[18px] h-[18px] rounded-md border-2 flex items-center justify-center transition-all ${isItemDelivered
                                                         ? "bg-emerald-500 border-emerald-500"
-                                                        : "border-pink-400/40 bg-pink-500/10 group-hover/item:border-pink-400"
-                                                    }`}>
+                                                        : "dark:border-pink-400/40 border-pink-500/90 bg-pink-500/10 group-hover/item:border-pink-400"
+                                                      }`}>
                                                       {isItemDelivered && <Check size={11} className="text-white" />}
                                                     </span>
                                                   </label>
 
                                                   <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 mb-1">
-                                                      <Gift size={14} className="text-pink-400 flex-shrink-0" />
-                                                      <span className="px-2 py-0.5 rounded-lg text-[11px] font-black uppercase tracking-widest bg-pink-500/25 text-pink-300 border border-pink-500/30">
+                                                      <Gift size={14} className="dark:text-pink-400 text-pink-500 flex-shrink-0" />
+                                                      <span className="px-2 py-0.5 rounded-lg text-[11px] font-black uppercase tracking-widest bg-pink-500/25 dark:text-pink-300 text-pink-500 border border-pink-500/30">
                                                         GIFT
                                                       </span>
                                                     </div>
@@ -929,8 +972,8 @@ export default function TablesPage() {
                                                     </p>
                                                     {item.notes && (
                                                       <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1 rounded-lg bg-pink-500/10 border border-pink-500/20">
-                                                        <span className="text-[10px] text-pink-300/60">→</span>
-                                                        <span className="text-[11px] font-bold text-pink-300">
+                                                        <span className="text-[10px] dark:text-pink-300/60 text-pink-500">→</span>
+                                                        <span className="text-[11px] font-bold dark:text-pink-300 text-pink-500 ">
                                                           {item.notes}
                                                         </span>
                                                       </div>
@@ -953,7 +996,7 @@ export default function TablesPage() {
                                               key={item.id}
                                               className={`relative rounded-xl overflow-hidden transition-all ${isItemDelivered ? "opacity-40" : ""}`}
                                             >
-                                              <div className="bg-gradient-to-r from-violet-500/15 via-indigo-500/10 to-blue-500/10 border border-violet-500/25 rounded-xl p-2.5">
+                                              <div className="bg-gradient-to-r from-violet-500/15 via-indigo-500/10 to-blue-500/10 border dark:border-violet-500/30 border-violet-500/90 rounded-xl p-2.5">
                                                 <div className="flex items-start gap-2">
                                                   <label
                                                     className="relative flex items-center cursor-pointer group/item mt-0.5"
@@ -965,19 +1008,18 @@ export default function TablesPage() {
                                                       onChange={() => toggleItemDelivered(order.id, item.id, table.id)}
                                                       className="peer sr-only"
                                                     />
-                                                    <span className={`w-[18px] h-[18px] rounded-md border-2 flex items-center justify-center transition-all ${
-                                                      isItemDelivered
+                                                    <span className={`w-[18px] h-[18px] rounded-md border-2 flex items-center justify-center transition-all ${isItemDelivered
                                                         ? "bg-emerald-500 border-emerald-500"
-                                                        : "border-violet-400/40 bg-violet-500/10 group-hover/item:border-violet-400"
-                                                    }`}>
+                                                        : "dark:border-violet-400/40 border-violet-500/90 bg-violet-500/10 group-hover/item:border-violet-400"
+                                                      }`}>
                                                       {isItemDelivered && <Check size={11} className="text-white" />}
                                                     </span>
                                                   </label>
 
                                                   <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 mb-1">
-                                                      <Package size={14} className="text-violet-400 flex-shrink-0" />
-                                                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-violet-500/25 text-violet-300 border border-violet-500/30">
+                                                      <Package size={14} className="dark:text-violet-400 text-violet-600 flex-shrink-0" />
+                                                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-violet-500/25 dark:text-violet-300 text-violet-500 border dark:border-violet-500/30 border-violet-500/90">
                                                         COMBO SET
                                                       </span>
                                                     </div>
@@ -986,7 +1028,7 @@ export default function TablesPage() {
                                                     </p>
                                                   </div>
 
-                                                  <span className="text-sm font-bold text-violet-400 tabular-nums shrink-0">
+                                                  <span className="text-sm font-bold dark:text-violet-400 text-violet-600 tabular-nums shrink-0">
                                                     {formatCurrency(parseFloat(item.price) * item.quantity)}
                                                   </span>
                                                 </div>
@@ -1011,11 +1053,10 @@ export default function TablesPage() {
                                                 onChange={() => toggleItemDelivered(order.id, item.id, table.id)}
                                                 className="peer sr-only"
                                               />
-                                              <span className={`w-[18px] h-[18px] rounded-md border-2 flex items-center justify-center transition-all ${
-                                                isItemDelivered
+                                              <span className={`w-[18px] h-[18px] rounded-md border-2 flex items-center justify-center transition-all ${isItemDelivered
                                                   ? "bg-emerald-500 border-emerald-500"
-                                                  : "border-white/20 bg-white/5 group-hover/item:border-emerald-400"
-                                              }`}>
+                                                  : "dark:border-white/20 border-white/80 bg-white/5 group-hover/item:border-emerald-400"
+                                                }`}>
                                                 {isItemDelivered && <Check size={11} className="text-white" />}
                                               </span>
                                             </label>
@@ -1065,11 +1106,10 @@ export default function TablesPage() {
                               return (
                                 <div className="space-y-1.5">
                                   <div
-                                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium ${
-                                      allItemsDelivered
+                                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium ${allItemsDelivered
                                         ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                                         : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
-                                    }`}
+                                      }`}
                                   >
                                     <CheckCircle size={14} />
                                     <span>
@@ -1085,9 +1125,8 @@ export default function TablesPage() {
                                   {totalItems > 0 && (
                                     <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
                                       <div
-                                        className={`h-full rounded-full transition-all duration-500 ${
-                                          allItemsDelivered ? "bg-emerald-500" : "bg-blue-500"
-                                        }`}
+                                        className={`h-full rounded-full transition-all duration-500 ${allItemsDelivered ? "bg-emerald-500" : "bg-blue-500"
+                                          }`}
                                         style={{ width: `${(deliveredItems / totalItems) * 100}%` }}
                                       />
                                     </div>
@@ -1097,7 +1136,7 @@ export default function TablesPage() {
                             })()}
 
                           {/* Action buttons */}
-                          <div className="flex gap-2 pt-1">
+                          <div className="flex flex-wrap gap-2 pt-1">
                             <button
                               onClick={() => openHistory(table)}
                               className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium glass hover:bg-white/10 transition-colors"
@@ -1112,20 +1151,7 @@ export default function TablesPage() {
                               <QrCode size={14} />
                               QR Code
                             </button>
-                            <button
-                              onClick={() => {
-                                setPinEditTable(table);
-                                setPinEditValue(table.tabletPin || "");
-                              }}
-                              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium transition-colors ${
-                                table.tabletPin
-                                  ? "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20"
-                                  : "glass hover:bg-white/10"
-                              }`}
-                            >
-                              <Key size={14} />
-                              PIN
-                            </button>
+
                             {activeOrders.length > 0 &&
                               (() => {
                                 const allDelivered = activeOrders.every(
@@ -1140,11 +1166,10 @@ export default function TablesPage() {
                                         ? "All orders must be delivered before closing the bill"
                                         : "Close bill"
                                     }
-                                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
-                                      allDelivered
+                                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${allDelivered
                                         ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/30 cursor-pointer"
                                         : "bg-zinc-500/10 text-zinc-400 cursor-not-allowed opacity-50"
-                                    }`}
+                                      }`}
                                   >
                                     <CreditCard size={14} />
                                     Close Bill
@@ -1294,27 +1319,24 @@ export default function TablesPage() {
                   return (
                     <div
                       key={bill.key}
-                      className={`rounded-2xl border-2 overflow-hidden ${
-                        isOpen
+                      className={`rounded-2xl border-2 overflow-hidden ${isOpen
                           ? "border-amber-400/60 bg-amber-50/40 dark:bg-amber-500/5"
                           : "border-emerald-400/50 bg-emerald-50/40 dark:bg-emerald-500/5"
-                      }`}
+                        }`}
                     >
                       {/* Bill header */}
                       <div
-                        className={`px-4 py-3 flex items-center justify-between ${
-                          isOpen
+                        className={`px-4 py-3 flex flex-wrap gap-2 items-center justify-between ${isOpen
                             ? "bg-gradient-to-r from-amber-500/15 to-orange-500/10"
                             : "bg-gradient-to-r from-emerald-500/15 to-teal-500/10"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-2.5">
                           <div
-                            className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-md ${
-                              isOpen
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-md ${isOpen
                                 ? "bg-gradient-to-br from-amber-500 to-orange-500"
                                 : "bg-gradient-to-br from-emerald-500 to-teal-600"
-                            }`}
+                              }`}
                           >
                             {isOpen ? (
                               <Clock size={16} className="text-white" />
@@ -1324,17 +1346,16 @@ export default function TablesPage() {
                           </div>
                           <div>
                             <p
-                              className={`text-[10px] font-bold uppercase tracking-widest ${
-                                isOpen
+                              className={`text-[10px] font-bold uppercase tracking-widest ${isOpen
                                   ? "text-amber-700 dark:text-amber-400"
                                   : "text-emerald-700 dark:text-emerald-400"
-                              }`}
+                                }`}
                             >
                               {isOpen
                                 ? "Open Bill — In Progress"
                                 : `Bill #${bills.length - billIdx}`}
                             </p>
-                            <p className="text-xs font-semibold flex items-center gap-1">
+                            <p className="text-xs font-semibold flex flex-wrap items-center gap-x-1">
                               {closedAt ? (
                                 <>
                                   <Lock
@@ -1408,26 +1429,19 @@ export default function TablesPage() {
                                 return (
                                   <div
                                     key={item.id}
-                                    className={`flex items-center gap-2 text-xs rounded-md px-2 py-1 ${
-                                      isCombo
+                                    className={`flex items-center gap-2 text-xs rounded-md px-2 py-1 ${isCombo
                                         ? "bg-amber-500/10 border border-amber-500/15"
                                         : isGiftItem
                                           ? "bg-pink-500/10 border border-pink-500/15"
                                           : ""
-                                    }`}
+                                      }`}
                                   >
                                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
                                       {isCombo && <Package size={12} className="text-amber-500 flex-shrink-0" />}
                                       {isGiftItem && <Gift size={12} className="text-pink-500 flex-shrink-0" />}
                                       <span className="text-muted-foreground truncate">
                                         {item.quantity}x{" "}
-                                        {item.combo?.name?.en ||
-                                          (item.combo?.name
-                                            ? Object.values(item.combo.name)[0]
-                                            : item.product?.name?.en ||
-                                              (item.product?.name
-                                                ? Object.values(item.product.name)[0]
-                                                : "Unknown Item"))}
+                                        {getLocalizedName(item.combo?.name || item.product?.name)}
                                       </span>
                                       {isCombo && (
                                         <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-500/20 text-amber-400">
@@ -1440,9 +1454,8 @@ export default function TablesPage() {
                                         </span>
                                       )}
                                     </div>
-                                    <span className={`tabular-nums font-medium flex-shrink-0 ${
-                                      isGiftItem ? "text-pink-400" : isCombo ? "text-amber-400" : "text-muted-foreground"
-                                    }`}>
+                                    <span className={`tabular-nums font-medium flex-shrink-0 ${isGiftItem ? "text-pink-400" : isCombo ? "text-amber-400" : "text-muted-foreground"
+                                      }`}>
                                       {formatCurrency(parseFloat(item.price) * item.quantity)}
                                     </span>
                                   </div>
@@ -1495,21 +1508,7 @@ export default function TablesPage() {
               className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:outline-none focus:border-purple-500/50"
             />
           </div>
-          <div>
-            <label className="text-sm text-muted-foreground mb-1.5 block">
-              Tablet PIN (optional)
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={newTablePin}
-              onChange={(e) => setNewTablePin(e.target.value.replace(/\D/g, ''))}
-              placeholder="e.g., 1234"
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:outline-none focus:border-purple-500/50"
-            />
-            <p className="text-[10px] text-muted-foreground mt-1">4-6 digits. Set this to enable tablet mode for this table.</p>
-          </div>
+
           <p className="text-xs text-muted-foreground">
             A unique 8-character Table ID will be generated automatically.
           </p>
@@ -1519,51 +1518,6 @@ export default function TablesPage() {
         </div>
       </Modal>
 
-      {/* PIN Edit Modal */}
-      <Modal
-        isOpen={!!pinEditTable}
-        onClose={() => setPinEditTable(null)}
-        title={`Tablet PIN — Table ${pinEditTable?.number}`}
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Set a 4-6 digit PIN to enable tablet mode for this table. Leave empty to disable.
-          </p>
-          <div>
-            <label className="text-sm text-muted-foreground mb-1.5 block">PIN</label>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={pinEditValue}
-              onChange={(e) => setPinEditValue(e.target.value.replace(/\D/g, ''))}
-              placeholder="Enter 4-6 digit PIN"
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:outline-none focus:border-blue-500/50 text-center text-xl font-bold tracking-[0.3em]"
-            />
-          </div>
-          <div className="flex gap-2">
-            {pinEditTable?.tabletPin && (
-              <Button
-                variant="destructive"
-                onClick={() => { setPinEditValue(""); handleSavePin(); }}
-                disabled={savingPin}
-                className="flex-1"
-              >
-                Remove PIN
-              </Button>
-            )}
-            <Button
-              onClick={handleSavePin}
-              disabled={savingPin || (!!pinEditValue && !/^\d{4,6}$/.test(pinEditValue))}
-              className="flex-1"
-            >
-              {savingPin ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : 'Save PIN'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }
