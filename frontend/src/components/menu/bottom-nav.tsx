@@ -30,7 +30,15 @@ export function BottomNav({ onCartOpen, onHome, showHome = true }: BottomNavProp
   useEffect(() => setMounted(true), []);
 
   const activeItems = items.filter((i) => i.status !== "ordered");
-  const itemCount = mounted ? activeItems.reduce((count, item) => count + item.quantity, 0) : 0;
+  const orderedItems = items.filter((i) => i.status === "ordered");
+  const activeCount = mounted ? activeItems.reduce((count, item) => count + item.quantity, 0) : 0;
+  // Badge shows active count; if only ordered items exist show those instead
+  const itemCount = mounted
+    ? activeCount > 0
+      ? activeCount
+      : orderedItems.reduce((c, i) => c + i.quantity, 0)
+    : 0;
+  const hasAnyItems = mounted && (activeCount > 0 || orderedItems.length > 0);
   const total = mounted ? activeItems.reduce((total, item) => total + item.price * item.quantity, 0) : 0;
 
   // Use default English until mounted to prevent hydration mismatch
@@ -191,7 +199,7 @@ export function BottomNav({ onCartOpen, onHome, showHome = true }: BottomNavProp
                 className="flex flex-col items-center gap-0.5 py-2 rounded-xl hover:bg-white/5 active:scale-95 transition-all relative"
               >
                 <div className="relative">
-                  <ShoppingBag size={20} className={itemCount > 0 ? '' : 'text-muted-foreground'} style={itemCount > 0 ? { color: 'var(--accent-color, #f1995bff)' } : undefined} />
+                  <ShoppingBag size={20} className={hasAnyItems ? '' : 'text-muted-foreground'} style={hasAnyItems ? { color: 'var(--accent-color, #f1995bff)' } : undefined} />
                   <AnimatePresence>
                     {itemCount > 0 && (
                       <motion.span
@@ -207,7 +215,7 @@ export function BottomNav({ onCartOpen, onHome, showHome = true }: BottomNavProp
                     )}
                   </AnimatePresence>
                 </div>
-                <span className={`text-[10px] font-medium ${itemCount > 0 ? '' : 'text-muted-foreground'}`} style={itemCount > 0 ? { color: 'var(--accent-color, #fdba74)' } : undefined}>
+                <span className={`text-[10px] font-medium ${hasAnyItems ? '' : 'text-muted-foreground'}`} style={hasAnyItems ? { color: 'var(--accent-color, #fdba74)' } : undefined}>
                   {cartLabel}
                 </span>
               </button>

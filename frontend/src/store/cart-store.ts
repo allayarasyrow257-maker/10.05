@@ -318,23 +318,17 @@ export const useCartStore = create<CartState>((set, get) => ({
 
   setOrderedItemsFromBackend: (orderedItems) => {
     set((state) => {
-      // Keep active items and LOCAL ordered items (our session's combos etc)
-      // Only replace items that came from backend sync previously
+      // Backend is the source of truth for ordered items.
+      // Keep ONLY active (not-yet-sent) items from local state;
+      // replace every ordered entry (local lock or old backend copy) with
+      // fresh backend data. This prevents duplicates after lockItemsAfterOrder.
       const activeItems = state.items.filter((i) => i.status !== "ordered");
-      const localOrderedItems = state.items.filter(
-        (i) => i.status === "ordered" && !i.fromBackend,
-      );
-      // Tag incoming backend items so we can distinguish them next time
       const taggedBackendItems = orderedItems.map((i) => ({
         ...i,
         cartItemId: i.cartItemId || generateCartItemId(),
         fromBackend: true,
       }));
-      const newItems = [
-        ...activeItems,
-        ...localOrderedItems,
-        ...taggedBackendItems,
-      ];
+      const newItems = [...activeItems, ...taggedBackendItems];
       const { tableId } = get();
       saveCart(newItems, tableId);
       return { items: newItems };

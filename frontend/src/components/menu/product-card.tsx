@@ -64,6 +64,7 @@ export function ProductCard({
       name: product.name,
       price: parseFloat(product.price),
       image: product.image,
+      cartItemId: ""
     });
   };
 
@@ -209,7 +210,7 @@ export function ProductCard({
               exit={{ opacity: 0, scale: 0.96, y: 40 }}
               transition={{ type: "spring", damping: 22, stiffness: 260 }}
               className="fixed inset-0 p-8 sm:p-6 md:p-10 lg:p-16 z-[101] flex items-center justify-center"            >
-              <div className="relative w-full h-full max-w-md sm:max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-3xl rounded-[28px] overflow-hidden bg-white dark:bg-zinc-900 shadow-2xl flex flex-col md:flex-row border border-black/5 dark:border-white/10">
+              <div className="relative w-full h-[85dvh] sm:h-[80dvh] md:h-[500px] lg:h-[600px] max-w-md sm:max-w-lg md:max-w-3xl lg:max-w-4xl rounded-[28px] overflow-hidden bg-white dark:bg-zinc-900 shadow-2xl flex flex-col md:flex-row border border-black/5 dark:border-white/10">
                 {/* CLOSE */}
                 <button
                   onClick={() => setExpanded(false)}
@@ -219,7 +220,7 @@ export function ProductCard({
                 </button>
 
                 {/* IMAGE */}
-                <div className="relative w-full md:w-2/3 h-[45%] md:h-full">
+                <div className="relative w-full md:w-1/2 lg:w-3/5 h-[40%] sm:h-[45%] md:h-full">
                   {product.image ? (
                     <motion.img
                       src={getImageUrl(product.image)}
@@ -240,7 +241,7 @@ export function ProductCard({
                 </div>
 
                 {/* CONTENT */}
-                <div className="relative flex flex-col w-full md:w-1/3">
+                <div className="relative flex flex-col w-full md:w-1/2 lg:w-2/5">
 
                   {/* SCROLL AREA */}
                   <div className="flex-1 overflow-y-auto px-6 md:px-8 pt-6 pb-28">

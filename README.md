@@ -336,3 +336,12 @@ NEXT_PUBLIC_SOCKET_URL=http://localhost:3001
 
 MIT
 # qrcode-menu
+
+
+
+
+
+In my project if I order something. it adds to my cart but after ordering it dissapearce. But I need after ordering in cart need ordered and ordered price too. if user again orders need to show ordered price + new one's price and total. when again orders send only new orders to admin. and in one table can seat more people so after ordering other phone with that table id also able to see ordered products. when I close bill from admin clean everything.
+
+
+look no need your order is being prepared. just after ordering even admin prepared do not remove from cart. show it ordered. clean cart after closing bill. before that show all products old and new one. no need prepared. even in admin panel admin signs checkbox. that checkbox is for admin 

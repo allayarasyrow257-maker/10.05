@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useCartStore } from '@/store/cart-store';
+import { useCartStore, CartItem } from '@/store/cart-store';
 import { getSocket } from '@/lib/socket';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -10,37 +10,61 @@ export function useTableOrderSync() {
     markBillClosed,
     acknowledgeClosedBill,
     billClosedAt,
+    setOrderedItemsFromBackend,
   } = useCartStore();
 
   useEffect(() => {
     if (!tableId) return;
 
-    const checkBillStatus = async () => {
+    // Fetch all open orders for this table and merge them into the cart
+    // as "ordered" (locked) items so every phone at the table sees them.
+    const syncOrderedItems = async () => {
       try {
         const orders = await api.get<any[]>(`/orders/table/${tableId}`);
 
-        // If we still believe a bill is closed but the backend reports active
-        // orders (i.e. a new customer group has placed an order on this table),
-        // silently dismiss the closed-bill banner so the next group starts fresh.
+        // If we still think the bill is closed but there are now fresh orders,
+        // silently clear the closed-bill banner so the new session starts clean.
         if (billClosedAt && Array.isArray(orders) && orders.length > 0) {
           acknowledgeClosedBill();
+          return;
+        }
+
+        if (Array.isArray(orders)) {
+          const orderedItems: CartItem[] = orders.flatMap((order: any) =>
+            (order.items ?? []).map((item: any) => ({
+              cartItemId: `backend-${order.id}-${item.id}`,
+              productId: item.productId ?? item.product?.id ?? 0,
+              name:
+                item.product?.name ??
+                item.combo?.name ?? { en: 'Item', ru: 'Позиция', tk: 'Haryt', tr: 'Ürün' },
+              price: parseFloat(item.price ?? '0'),
+              quantity: item.quantity,
+              image: item.product?.image ?? item.combo?.image,
+              notes: item.notes ?? undefined,
+              isGift: item.isGift ?? false,
+              isCombo: !!item.comboId,
+              comboId: item.comboId ?? undefined,
+              comboName: item.combo?.name ?? undefined,
+              status: 'ordered' as const,
+              fromBackend: true,
+            }))
+          );
+          setOrderedItemsFromBackend(orderedItems);
         }
       } catch (error) {
-        console.error('Failed to check table orders:', error);
+        console.error('Failed to sync table orders:', error);
       }
     };
 
-    // Initial check on mount
-    checkBillStatus();
+    // Initial sync on mount
+    syncOrderedItems();
 
     const socket = getSocket();
 
-    // Listen for new orders from other devices (only check bill status)
-    socket.on('table-order-updated', checkBillStatus);
+    // Any new order from any phone at this table → refresh ordered items
+    socket.on('table-order-updated', syncOrderedItems);
 
-    // Listen for bill closure — show the closed-bill banner instead of
-    // silently wiping the cart. The customer sees a clear "closed at" notice
-    // and acknowledges it before the cart resets.
+    // Bill closed by admin → show banner, then auto-clear after 5 s
     let billTimer: ReturnType<typeof setTimeout> | null = null;
 
     socket.on('bill-closed', () => {
@@ -50,21 +74,19 @@ export function useTableOrderSync() {
       const msg =
         lang === 'tk' ? 'Hasap ýapyldy. Sag boluň!' :
         lang === 'ru' ? 'Счёт закрыт. Спасибо!' :
-        lang === 'tr' ? 'Hesap kapatildi. Tesekkurler!' :
+        lang === 'tr' ? 'Hesap kapatildi. Teşekkürler!' :
         'Bill closed. Thank you!';
       toast.success(msg, { icon: '🧾', duration: 5000 });
 
-      // Auto-acknowledge after 5 seconds — clears cart, generates new sessionId,
-      // so the next customer group starts completely fresh
       billTimer = setTimeout(() => {
         acknowledgeClosedBill();
       }, 5000);
     });
 
     return () => {
-      socket.off('table-order-updated', checkBillStatus);
+      socket.off('table-order-updated', syncOrderedItems);
       socket.off('bill-closed');
       if (billTimer) clearTimeout(billTimer);
     };
-  }, [tableId, markBillClosed, acknowledgeClosedBill, billClosedAt]);
+  }, [tableId, markBillClosed, acknowledgeClosedBill, billClosedAt, setOrderedItemsFromBackend]);
 }
