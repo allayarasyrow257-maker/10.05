@@ -5,11 +5,12 @@ import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Lock, Eye, EyeOff, Shield, Tablet, Key } from 'lucide-react';
+import { Lock, Eye, EyeOff, Shield, Tablet, Key, UserCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface CafeSettings {
   tabletPin?: string | null;
+  waiterPassword?: string | null;
 }
 
 export default function SettingsPage() {
@@ -28,9 +29,17 @@ export default function SettingsPage() {
   const [savingPin, setSavingPin] = useState(false);
   const [pinLoaded, setPinLoaded] = useState(false);
 
+  // Waiter Password
+  const [currentWaiterPw, setCurrentWaiterPw] = useState<string | null>(null);
+  const [showCurrentWaiterPw, setShowCurrentWaiterPw] = useState(false);
+  const [newWaiterPw, setNewWaiterPw] = useState('');
+  const [showNewWaiterPw, setShowNewWaiterPw] = useState(false);
+  const [savingWaiterPw, setSavingWaiterPw] = useState(false);
+
   useEffect(() => {
     api.get<CafeSettings>('/admin/settings', true).then((data) => {
       setCurrentPin(data.tabletPin ?? null);
+      setCurrentWaiterPw(data.waiterPassword ?? null);
       setPinLoaded(true);
     }).catch(() => setPinLoaded(true));
   }, []);
@@ -76,6 +85,24 @@ export default function SettingsPage() {
       toast.error(error.message || 'Failed to save PIN');
     } finally {
       setSavingPin(false);
+    }
+  };
+
+  const handleSaveWaiterPassword = async () => {
+    if (newWaiterPw && newWaiterPw.length < 4) {
+      toast.error('Waiter password must be at least 4 characters');
+      return;
+    }
+    setSavingWaiterPw(true);
+    try {
+      const updated = await api.put<CafeSettings>('/admin/settings', { waiterPassword: newWaiterPw || null }, true);
+      setCurrentWaiterPw(updated.waiterPassword ?? null);
+      setNewWaiterPw('');
+      toast.success(newWaiterPw ? 'Waiter password updated' : 'Waiter password removed');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save waiter password');
+    } finally {
+      setSavingWaiterPw(false);
     }
   };
 
@@ -167,6 +194,80 @@ export default function SettingsPage() {
                   {savingPin
                     ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     : 'Save PIN'
+                  }
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ── Waiter Password ── */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+        <Card>
+          <CardContent>
+            <div className="flex items-center gap-2 mb-4">
+              <UserCheck size={20} className="text-amber-400" />
+              <h3 className="text-lg font-semibold">Waiter Password</h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Password for waiters to access the waiter panel from the options page.
+            </p>
+
+            {pinLoaded && (
+              <div className="mb-4 p-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Key size={15} className="text-muted-foreground flex-shrink-0" />
+                  <span className="text-xs text-muted-foreground">Current:</span>
+                  <span className="font-mono font-bold text-sm">
+                    {currentWaiterPw
+                      ? (showCurrentWaiterPw ? currentWaiterPw : '●'.repeat(currentWaiterPw.length))
+                      : <span className="text-muted-foreground italic text-xs">not set</span>
+                    }
+                  </span>
+                </div>
+                {currentWaiterPw && (
+                  <button type="button" onClick={() => setShowCurrentWaiterPw(!showCurrentWaiterPw)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    title={showCurrentWaiterPw ? 'Hide' : 'Show'}>
+                    {showCurrentWaiterPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">New Password (min 4 characters)</label>
+                <div className="relative">
+                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type={showNewWaiterPw ? 'text' : 'password'}
+                    value={newWaiterPw}
+                    onChange={(e) => setNewWaiterPw(e.target.value)}
+                    placeholder="e.g. waiter123"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white/5 border border-white/10 focus:outline-none focus:border-amber-500/50 transition-colors text-sm"
+                  />
+                  <button type="button" onClick={() => setShowNewWaiterPw(!showNewWaiterPw)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    {showNewWaiterPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {currentWaiterPw && (
+                  <Button variant="destructive"
+                    onClick={() => { setNewWaiterPw(''); setTimeout(handleSaveWaiterPassword, 0); }}
+                    disabled={savingWaiterPw} className="flex-1">
+                    Remove Password
+                  </Button>
+                )}
+                <Button onClick={handleSaveWaiterPassword}
+                  disabled={savingWaiterPw || (!!newWaiterPw && newWaiterPw.length < 4)}
+                  className="flex-1 h-10">
+                  {savingWaiterPw
+                    ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : 'Save Password'
                   }
                 </Button>
               </div>

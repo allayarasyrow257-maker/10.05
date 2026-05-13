@@ -1,4 +1,5 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 const { PrismaClient } = require('@prisma/client');
@@ -27,7 +28,7 @@ router.get('/settings', (req, res) => {
   const settings = readSettings();
   const authHeader = req.headers['authorization'];
   if (!authHeader) {
-    const { tabletPin, ...publicSettings } = settings;
+    const { tabletPin, waiterPassword, ...publicSettings } = settings;
     return res.json(publicSettings);
   }
   res.json(settings);
@@ -36,7 +37,7 @@ router.get('/settings', (req, res) => {
 // Update cafe settings (admin)
 router.put('/settings', authenticateToken, async (req, res) => {
   try {
-    const { name, logo, backgroundColorLight, backgroundColorDark, accentColorLight, accentColorDark, maintenance, tabletPin } = req.body;
+    const { name, logo, backgroundColorLight, backgroundColorDark, accentColorLight, accentColorDark, maintenance, tabletPin, waiterPassword } = req.body;
     const settings = readSettings();
     if (name !== undefined) settings.name = name;
     if (logo !== undefined) settings.logo = logo;
@@ -46,6 +47,7 @@ router.put('/settings', authenticateToken, async (req, res) => {
     if (accentColorDark !== undefined) settings.accentColorDark = accentColorDark;
     if (maintenance !== undefined) settings.maintenance = maintenance;
     if (tabletPin !== undefined) settings.tabletPin = tabletPin || null;
+    if (waiterPassword !== undefined) settings.waiterPassword = waiterPassword || null;
     writeSettings(settings);
     res.json(settings);
   } catch (error) {
@@ -61,6 +63,22 @@ router.post('/verify-tablet-pin', (req, res) => {
   if (!settings.tabletPin) return res.status(400).json({ error: 'No tablet PIN configured' });
   if (settings.tabletPin !== pin) return res.status(401).json({ error: 'Invalid PIN' });
   res.json({ ok: true });
+});
+
+// Verify waiter password (public — used by waiter page)
+router.post('/verify-waiter-password', (req, res) => {
+  const { password } = req.body;
+  if (!password) return res.status(400).json({ error: 'password is required' });
+  const settings = readSettings();
+  if (!settings.waiterPassword) return res.status(400).json({ error: 'No waiter password configured' });
+  if (settings.waiterPassword !== password) return res.status(401).json({ error: 'Invalid password' });
+  // Generate a JWT so the waiter can use authenticated endpoints (orders, tables, etc.)
+  const token = jwt.sign(
+    { id: 0, email: 'waiter@system', name: 'Waiter', role: 'waiter' },
+    process.env.JWT_SECRET,
+    { expiresIn: '12h' }
+  );
+  res.json({ ok: true, token });
 });
 
 // Get admin stats overview

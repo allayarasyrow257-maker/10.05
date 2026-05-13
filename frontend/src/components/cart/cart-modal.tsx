@@ -60,64 +60,64 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
   const labels = {
     cart:
       lang === "tk" ? "Sebet" :
-      lang === "ru" ? "Корзина" :
-      lang === "tr" ? "Sepet" : "Your Cart",
+        lang === "ru" ? "Корзина" :
+          lang === "tr" ? "Sepet" : "Your Cart",
     empty:
       lang === "tk" ? "Sebet boş" :
-      lang === "ru" ? "Корзина пуста" :
-      lang === "tr" ? "Sepet boş" : "Your cart is empty",
+        lang === "ru" ? "Корзина пуста" :
+          lang === "tr" ? "Sepet boş" : "Your cart is empty",
     emptyDesc:
       lang === "tk" ? "Menyudan haryt goşuň" :
-      lang === "ru" ? "Добавьте товары из меню" :
-      lang === "tr" ? "Menüden ürün ekleyin" : "Add items from the menu to get started",
+        lang === "ru" ? "Добавьте товары из меню" :
+          lang === "tr" ? "Menüden ürün ekleyin" : "Add items from the menu to get started",
     total:
       lang === "tk" ? "Jemi" :
-      lang === "ru" ? "Итого" :
-      lang === "tr" ? "Toplam" : "Total",
+        lang === "ru" ? "Итого" :
+          lang === "tr" ? "Toplam" : "Total",
     items:
       lang === "tk" ? "haryt" :
-      lang === "ru" ? "товар." :
-      lang === "tr" ? "ürün" : "items",
+        lang === "ru" ? "товар." :
+          lang === "tr" ? "ürün" : "items",
     placeOrder:
       lang === "tk" ? "Sargyt ber" :
-      lang === "ru" ? "Оформить заказ" :
-      lang === "tr" ? "Sipariş ver" : "Place Order",
+        lang === "ru" ? "Оформить заказ" :
+          lang === "tr" ? "Sipariş ver" : "Place Order",
     orderPlaced:
       lang === "tk" ? "Sargyt kabul edildi!" :
-      lang === "ru" ? "Заказ принят!" :
-      lang === "tr" ? "Sipariş alındı!" : "Order Placed!",
+        lang === "ru" ? "Заказ принят!" :
+          lang === "tr" ? "Sipariş alındı!" : "Order Placed!",
     orderNumber:
       lang === "tk" ? "Sargyt belgisi" :
-      lang === "ru" ? "Номер заказа" :
-      lang === "tr" ? "Sipariş no" : "Order Number",
+        lang === "ru" ? "Номер заказа" :
+          lang === "tr" ? "Sipariş no" : "Order Number",
     preparing:
       lang === "tk" ? "Taýýarlanýar..." :
-      lang === "ru" ? "Готовится..." :
-      lang === "tr" ? "Hazırlanıyor..." : "Your order is being prepared...",
+        lang === "ru" ? "Готовится..." :
+          lang === "tr" ? "Hazırlanıyor..." : "Your order is being prepared...",
     close:
       lang === "tk" ? "Ýapmak" :
-      lang === "ru" ? "Закрыть" :
-      lang === "tr" ? "Kapat" : "Close",
+        lang === "ru" ? "Закрыть" :
+          lang === "tr" ? "Kapat" : "Close",
     orderedSection:
       lang === "tk" ? "Sargyt edilenler" :
-      lang === "ru" ? "Уже заказано" :
-      lang === "tr" ? "Sipariş edilenler" : "Already Ordered",
+        lang === "ru" ? "Уже заказано" :
+          lang === "tr" ? "Sipariş edilenler" : "Already Ordered",
     newSection:
       lang === "tk" ? "Täze sargyt" :
-      lang === "ru" ? "Новый заказ" :
-      lang === "tr" ? "Yeni sipariş" : "New Items",
+        lang === "ru" ? "Новый заказ" :
+          lang === "tr" ? "Yeni sipariş" : "New Items",
     orderedSubtotal:
       lang === "tk" ? "Sargyt edildi" :
-      lang === "ru" ? "Заказано" :
-      lang === "tr" ? "Sipariş edildi" : "Ordered",
+        lang === "ru" ? "Заказано" :
+          lang === "tr" ? "Sipariş edildi" : "Ordered",
     newSubtotal:
       lang === "tk" ? "Täze" :
-      lang === "ru" ? "Новый" :
-      lang === "tr" ? "Yeni" : "New",
+        lang === "ru" ? "Новый" :
+          lang === "tr" ? "Yeni" : "New",
     grandTotal:
       lang === "tk" ? "Umumy jemi" :
-      lang === "ru" ? "Общий итог" :
-      lang === "tr" ? "Genel toplam" : "Grand Total",
+        lang === "ru" ? "Общий итог" :
+          lang === "tr" ? "Genel toplam" : "Grand Total",
   };
 
   // Split items into editable (active) and locked (ordered)
@@ -168,10 +168,6 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
 
       // Lock active items as "ordered" — they remain visible but non-editable
       lockItemsAfterOrder();
-      setConfirmedOrder(order);
-
-      // Auto-dismiss success screen after 2 s → user sees full cart
-      setTimeout(() => setConfirmedOrder(null), 2000);
     } catch (error) {
       toast.error("Failed to place order. Please try again.");
     } finally {
@@ -185,11 +181,7 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
   };
 
   // ─── Footer ────────────────────────────────────────────────────────────────
-  const cartFooter = confirmedOrder ? (
-    <p className="text-center text-sm text-muted-foreground animate-pulse">
-      {labels.preparing}
-    </p>
-  ) : isEmpty ? null : (
+  const cartFooter = isEmpty ? null : (
     <div className="space-y-3">
       {/* Price breakdown */}
       <div className="space-y-1.5">
@@ -247,53 +239,11 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title={confirmedOrder ? undefined : labels.cart}
+      title={labels.cart}
       footer={cartFooter}
     >
       <AnimatePresence mode="wait">
-        {/* ── Success screen (auto-dismisses) ── */}
-        {confirmedOrder ? (
-          <motion.div
-            key="confirmed"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            className="text-center py-6"
-          >
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", bounce: 0.4, delay: 0.1 }}
-              className="w-20 h-20 mx-auto rounded-full bg-green-500/20 flex items-center justify-center mb-4"
-            >
-              <CheckCircle size={40} className="text-green-500" />
-            </motion.div>
-
-            <motion.h2
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-xl font-bold mb-2"
-            >
-              {labels.orderPlaced}
-            </motion.h2>
-
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="rounded-2xl p-4 mb-2 inline-block bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20"
-            >
-              <p className="text-xs text-muted-foreground mb-1">
-                {labels.orderNumber}
-              </p>
-              <p className="text-3xl font-bold text-gradient">
-                #{confirmedOrder.id}
-              </p>
-            </motion.div>
-          </motion.div>
-
-        ) : isEmpty ? (
+        {isEmpty ? (
           /* ── Empty state ── */
           <motion.div key="empty" className="text-center py-16 px-4">
             <div className="w-20 h-20 mx-auto rounded-full bg-zinc-100 dark:bg-white/5 flex items-center justify-center mb-5">
@@ -417,13 +367,12 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
                         transition={{ delay: index * 0.03 }}
                       >
                         <div
-                          className={`p-3 rounded-xl transition-colors ${
-                            item.isGift
-                              ? "bg-pink-50 dark:bg-pink-500/10 border border-pink-200 dark:border-pink-500/20"
-                              : item.isCombo || item.comboId
-                                ? "bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20"
-                                : "bg-zinc-50 dark:bg-white/[0.03] border border-zinc-100 dark:border-white/[0.06] hover:border-zinc-200 dark:hover:border-white/10"
-                          }`}
+                          className={`p-3 rounded-xl transition-colors ${item.isGift
+                            ? "bg-pink-50 dark:bg-pink-500/10 border border-pink-200 dark:border-pink-500/20"
+                            : item.isCombo || item.comboId
+                              ? "bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20"
+                              : "bg-zinc-50 dark:bg-white/[0.03] border border-zinc-100 dark:border-white/[0.06] hover:border-zinc-200 dark:hover:border-white/10"
+                            }`}
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-100 dark:bg-white/5">

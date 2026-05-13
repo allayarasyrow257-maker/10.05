@@ -7,5 +7,6 @@
   "accentColorLight": "#f6751b",
   "accentColorDark": "#f9761b",
   "maintenance": false,
-  "tabletPin": "1234"
+  "tabletPin": "1234",
+  "waiterPassword": "1234"
 }

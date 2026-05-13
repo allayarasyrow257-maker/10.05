@@ -203,7 +203,7 @@ export function AdminTopbar({ onMenuToggle }: TopbarProps) {
       }
     }
     return () => {
-      if (chimeIntervalRef.current && undismissedWaiters === 0) {
+      if (chimeIntervalRef.current) {
         clearInterval(chimeIntervalRef.current);
         chimeIntervalRef.current = null;
       }

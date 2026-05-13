@@ -23,7 +23,6 @@ import {
   Package,
   Sparkles,
   Tablet,
-  Trash2,
   X,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -239,7 +238,6 @@ export default function TablesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newTableNumber, setNewTableNumber] = useState("");
   const [newTableName, setNewTableName] = useState("");
-  const [isDeleteMode, setIsDeleteMode] = useState(false);
   const [waiterCalls, setWaiterCalls] = useState<Set<number>>(new Set());
   const [qrTable, setQrTable] = useState<Table | null>(null);
   const [expandedTable, setExpandedTable] = useState<number | null>(null);
@@ -344,7 +342,7 @@ export default function TablesPage() {
       chimeIntervalRef.current = null;
     }
     return () => {
-      if (chimeIntervalRef.current && waiterCalls.size === 0) {
+      if (chimeIntervalRef.current) {
         clearInterval(chimeIntervalRef.current);
         chimeIntervalRef.current = null;
       }
@@ -371,19 +369,6 @@ export default function TablesPage() {
       toast.error(error.message || "Failed to create table");
     }
   };
-
-  const handleDeleteTable = async (tableId: number) => {
-    if (!confirm("Are you sure you want to delete this table?")) return;
-    try {
-      await api.delete(`/tables/${tableId}`, true);
-      toast.success("Table deleted");
-      fetchTables();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete table");
-    }
-  };
-
-
 
   const handleCloseBill = async (table: Table) => {
     const total = table.orders.reduce((s, o) => s + parseFloat(o.total), 0);
@@ -438,12 +423,12 @@ export default function TablesPage() {
         orders: tb.orders.map((o) =>
           o.id === orderId
             ? {
-                ...o,
-                ...(allWillBeDelivered ? { status: "delivered" } : {}),
-                items: o.items.map((item) =>
-                  item.id === itemId ? { ...item, delivered: !item.delivered } : item
-                ),
-              }
+              ...o,
+              ...(allWillBeDelivered ? { status: "delivered" } : {}),
+              items: o.items.map((item) =>
+                item.id === itemId ? { ...item, delivered: !item.delivered } : item
+              ),
+            }
             : o
         ),
       }))
@@ -470,10 +455,10 @@ export default function TablesPage() {
         orders: tb.orders.map((o) =>
           o.id === orderId
             ? {
-                ...o,
-                status: "delivered",
-                items: o.items.map((item) => ({ ...item, delivered: true })),
-              }
+              ...o,
+              status: "delivered",
+              items: o.items.map((item) => ({ ...item, delivered: true })),
+            }
             : o,
         ),
       })),
@@ -642,13 +627,6 @@ export default function TablesPage() {
                   ? "Tum QR lari Indir"
                   : "Export All QR"}
           </Button>
-          <Button 
-            variant={isDeleteMode ? "destructive" : "outline"} 
-            onClick={() => setIsDeleteMode(!isDeleteMode)}
-          >
-            <Trash2 size={18} className="mr-2" />
-            {isDeleteMode ? "Done" : "Remove Table"}
-          </Button>
           <Button onClick={() => {
             const nextNum = tables.length > 0 ? Math.max(...tables.map(t => t.number)) + 1 : 1;
             setNewTableNumber(nextNum.toString());
@@ -676,27 +654,14 @@ export default function TablesPage() {
             >
               <Card
                 className={`relative overflow-hidden transition-all ${waiterCalls.has(table.id)
-                    ? "border-2 border-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.45)] bg-amber-500/5 animate-pulse"
-                    : newOrderTables.has(table.id)
-                      ? "border-2 border-emerald-400 shadow-[0_0_25px_rgba(52,211,153,0.4)] bg-emerald-500/5 animate-pulse"
-                      : isExpanded
-                        ? "border-purple-500/40"
-                        : "hover:border-purple-500/20"
+                  ? "border-2 border-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.45)] bg-amber-500/5 animate-pulse"
+                  : newOrderTables.has(table.id)
+                    ? "border-2 border-emerald-400 shadow-[0_0_25px_rgba(52,211,153,0.4)] bg-emerald-500/5 animate-pulse"
+                    : isExpanded
+                      ? "border-purple-500/40"
+                      : "hover:border-purple-500/20"
                   }`}
               >
-                {isDeleteMode && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteTable(table.id);
-                    }}
-                    className="absolute top-3 left-3 z-20 flex items-center justify-center w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg transition-all"
-                    title="Delete table"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
-
                 {waiterCalls.has(table.id) && (
                   <button
                     onClick={(e) => {
@@ -736,10 +701,10 @@ export default function TablesPage() {
                     <div className="flex items-center gap-3">
                       <div
                         className={`relative w-14 h-14 rounded-2xl bg-gradient-to-br ${waiterCalls.has(table.id)
-                            ? "from-amber-400 to-red-500"
-                            : newOrderTables.has(table.id)
-                              ? "from-emerald-400 to-green-600"
-                              : getStatusColor(table.status)
+                          ? "from-amber-400 to-red-500"
+                          : newOrderTables.has(table.id)
+                            ? "from-emerald-400 to-green-600"
+                            : getStatusColor(table.status)
                           } flex items-center justify-center shadow-lg flex-shrink-0`}
                       >
                         <span className="text-white text-xl font-bold">
@@ -953,8 +918,8 @@ export default function TablesPage() {
                                                       className="peer sr-only"
                                                     />
                                                     <span className={`w-[18px] h-[18px] rounded-md border-2 flex items-center justify-center transition-all ${isItemDelivered
-                                                        ? "bg-emerald-500 border-emerald-500"
-                                                        : "dark:border-pink-400/40 border-pink-500/90 bg-pink-500/10 group-hover/item:border-pink-400"
+                                                      ? "bg-emerald-500 border-emerald-500"
+                                                      : "dark:border-pink-400/40 border-pink-500/90 bg-pink-500/10 group-hover/item:border-pink-400"
                                                       }`}>
                                                       {isItemDelivered && <Check size={11} className="text-white" />}
                                                     </span>
@@ -1009,8 +974,8 @@ export default function TablesPage() {
                                                       className="peer sr-only"
                                                     />
                                                     <span className={`w-[18px] h-[18px] rounded-md border-2 flex items-center justify-center transition-all ${isItemDelivered
-                                                        ? "bg-emerald-500 border-emerald-500"
-                                                        : "dark:border-violet-400/40 border-violet-500/90 bg-violet-500/10 group-hover/item:border-violet-400"
+                                                      ? "bg-emerald-500 border-emerald-500"
+                                                      : "dark:border-violet-400/40 border-violet-500/90 bg-violet-500/10 group-hover/item:border-violet-400"
                                                       }`}>
                                                       {isItemDelivered && <Check size={11} className="text-white" />}
                                                     </span>
@@ -1054,8 +1019,8 @@ export default function TablesPage() {
                                                 className="peer sr-only"
                                               />
                                               <span className={`w-[18px] h-[18px] rounded-md border-2 flex items-center justify-center transition-all ${isItemDelivered
-                                                  ? "bg-emerald-500 border-emerald-500"
-                                                  : "dark:border-white/20 border-white/80 bg-white/5 group-hover/item:border-emerald-400"
+                                                ? "bg-emerald-500 border-emerald-500"
+                                                : "dark:border-white/20 border-white/80 bg-white/5 group-hover/item:border-emerald-400"
                                                 }`}>
                                                 {isItemDelivered && <Check size={11} className="text-white" />}
                                               </span>
@@ -1107,8 +1072,8 @@ export default function TablesPage() {
                                 <div className="space-y-1.5">
                                   <div
                                     className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium ${allItemsDelivered
-                                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                        : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                      : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
                                       }`}
                                   >
                                     <CheckCircle size={14} />
@@ -1167,8 +1132,8 @@ export default function TablesPage() {
                                         : "Close bill"
                                     }
                                     className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${allDelivered
-                                        ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/30 cursor-pointer"
-                                        : "bg-zinc-500/10 text-zinc-400 cursor-not-allowed opacity-50"
+                                      ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/30 cursor-pointer"
+                                      : "bg-zinc-500/10 text-zinc-400 cursor-not-allowed opacity-50"
                                       }`}
                                   >
                                     <CreditCard size={14} />
@@ -1320,22 +1285,22 @@ export default function TablesPage() {
                     <div
                       key={bill.key}
                       className={`rounded-2xl border-2 overflow-hidden ${isOpen
-                          ? "border-amber-400/60 bg-amber-50/40 dark:bg-amber-500/5"
-                          : "border-emerald-400/50 bg-emerald-50/40 dark:bg-emerald-500/5"
+                        ? "border-amber-400/60 bg-amber-50/40 dark:bg-amber-500/5"
+                        : "border-emerald-400/50 bg-emerald-50/40 dark:bg-emerald-500/5"
                         }`}
                     >
                       {/* Bill header */}
                       <div
                         className={`px-4 py-3 flex flex-wrap gap-2 items-center justify-between ${isOpen
-                            ? "bg-gradient-to-r from-amber-500/15 to-orange-500/10"
-                            : "bg-gradient-to-r from-emerald-500/15 to-teal-500/10"
+                          ? "bg-gradient-to-r from-amber-500/15 to-orange-500/10"
+                          : "bg-gradient-to-r from-emerald-500/15 to-teal-500/10"
                           }`}
                       >
                         <div className="flex items-center gap-2.5">
                           <div
                             className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-md ${isOpen
-                                ? "bg-gradient-to-br from-amber-500 to-orange-500"
-                                : "bg-gradient-to-br from-emerald-500 to-teal-600"
+                              ? "bg-gradient-to-br from-amber-500 to-orange-500"
+                              : "bg-gradient-to-br from-emerald-500 to-teal-600"
                               }`}
                           >
                             {isOpen ? (
@@ -1347,8 +1312,8 @@ export default function TablesPage() {
                           <div>
                             <p
                               className={`text-[10px] font-bold uppercase tracking-widest ${isOpen
-                                  ? "text-amber-700 dark:text-amber-400"
-                                  : "text-emerald-700 dark:text-emerald-400"
+                                ? "text-amber-700 dark:text-amber-400"
+                                : "text-emerald-700 dark:text-emerald-400"
                                 }`}
                             >
                               {isOpen
@@ -1430,10 +1395,10 @@ export default function TablesPage() {
                                   <div
                                     key={item.id}
                                     className={`flex items-center gap-2 text-xs rounded-md px-2 py-1 ${isCombo
-                                        ? "bg-amber-500/10 border border-amber-500/15"
-                                        : isGiftItem
-                                          ? "bg-pink-500/10 border border-pink-500/15"
-                                          : ""
+                                      ? "bg-amber-500/10 border border-amber-500/15"
+                                      : isGiftItem
+                                        ? "bg-pink-500/10 border border-pink-500/15"
+                                        : ""
                                       }`}
                                   >
                                     <div className="flex items-center gap-1.5 flex-1 min-w-0">

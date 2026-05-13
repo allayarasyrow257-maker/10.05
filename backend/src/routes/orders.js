@@ -121,7 +121,7 @@ router.get("/table/:tableId", async (req, res) => {
       where: {
         tableId: parseInt(req.params.tableId),
         billClosedAt: null,
-        status: { notIn: ["cancelled", "delivered"] },
+        status: { notIn: ["cancelled"] },
       },
       include: {
         items: {
