@@ -626,7 +626,7 @@ export default function WaiterPage() {
                                             onClick={(e) => e.stopPropagation()}>
                                             <input id={`w-order-${order.id}`} type="checkbox" checked={isDelivered} disabled={isDelivered}
                                               onChange={() => markOrderDelivered(order.id, table.number)} className="sr-only" />
-                                            <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all group-hover/cb:border-emerald-400 ${isDelivered ? "bg-emerald-500 border-emerald-500" : "dark:border-white/20 border-zinc-300 bg-white/5"}`}>
+                                            <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all group-hover/cb:border-emerald-400 ${isDelivered ? "bg-emerald-500 border-emerald-500" : "dark:border-white/20 border-zinc-600 bg-white/5"}`}>
                                               {isDelivered && <CheckCircle size={12} className="text-white" />}
                                             </span>
                                           </label>
@@ -653,7 +653,7 @@ export default function WaiterPage() {
                                                 <input type="checkbox" checked={item.delivered}
                                                   onChange={() => toggleItemDelivered(order.id, item.id, table.id)} className="sr-only" />
                                                 <span className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
-                                                  item.delivered ? "bg-emerald-500 border-emerald-500" : "border-zinc-300 dark:border-white/20 hover:border-emerald-400"}`}>
+                                                  item.delivered ? "bg-emerald-500 border-emerald-500" : "border-zinc-600 dark:border-white/20 hover:border-emerald-400"}`}>
                                                   {item.delivered && <Check size={10} className="text-white" />}
                                                 </span>
                                               </label>
