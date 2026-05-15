@@ -345,3 +345,142 @@ In my project if I order something. it adds to my cart but after ordering it dis
 
 
 look no need your order is being prepared. just after ordering even admin prepared do not remove from cart. show it ordered. clean cart after closing bill. before that show all products old and new one. no need prepared. even in admin panel admin signs checkbox. that checkbox is for admin 
+
+## 🖥️ Desktop App (Tauri)
+
+This project can be built as a native desktop app for **macOS** and **Windows** using [Tauri v2](https://tauri.app). The app bundles the Next.js frontend and Express backend into a single window application.
+
+### Prerequisites
+
+- **Node.js** 18+ (must be installed and in PATH)
+- **PostgreSQL** 14+ (must be running)
+- **Rust** (install via `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)
+- **Tauri CLI** (install via `cargo install tauri-cli --version "^2"`)
+
+### Folder Structure
+
+```
+project-root/          ← You should be HERE for all Tauri commands
+├── frontend/          ← Next.js app
+├── backend/           ← Express API server
+├── src-tauri/         ← Tauri (Rust) configuration
+│   ├── tauri.conf.json
+│   ├── src/lib.rs     ← Starts backend + frontend in production
+│   └── Cargo.toml
+└── package.json       ← Build scripts
+```
+
+> **Important:** All `cargo tauri` commands must be run from the **project root** directory (where `src-tauri/` folder is located), NOT from inside `src-tauri/`.
+
+---
+
+### Commands
+
+#### 1. Development Mode (with hot-reload)
+
+```bash
+# From: project root folder
+cargo tauri dev
+```
+
+- Automatically starts the Express backend on port `3001`
+- Automatically starts Next.js dev server on port `3000`
+- Opens a native desktop window pointing to `http://localhost:3000`
+- **Hot-reload:** Any changes you make in `frontend/src/` will instantly reflect in the app window
+- **Backend changes:** If you change `backend/src/`, restart `cargo tauri dev`
+
+#### 2. Build Frontend After Code Changes
+
+If you changed frontend code and want to verify the production build works:
+
+```bash
+# From: project root folder
+cd frontend
+npm run build
+cd ..
+```
+
+This creates the optimized Next.js build in `frontend/.next/`. The Tauri production app uses `next start` which serves this build.
+
+#### 3. Build macOS App (.dmg)
+
+```bash
+# From: project root folder
+cargo tauri build
+```
+
+- First builds the frontend (`npm run build` in `frontend/`)
+- Then compiles the Rust/Tauri binary
+- Output: `src-tauri/target/release/bundle/dmg/QR Menu_1.0.0_aarch64.dmg`
+- The `.dmg` file is your distributable macOS installer
+
+#### 4. Build Windows App (.exe / NSIS installer)
+
+**Option A — On a Windows machine:**
+
+```bash
+# From: project root folder (in PowerShell or CMD)
+cargo tauri build
+```
+
+- Output: `src-tauri\target\release\bundle\nsis\QR Menu_1.0.0_x64-setup.exe`
+
+**Option B — Cross-compile from macOS (advanced):**
+
+```bash
+# Install Windows target
+rustup target add x86_64-pc-windows-msvc
+
+# Build
+cargo tauri build --target x86_64-pc-windows-msvc
+```
+
+> Note: Cross-compilation requires additional setup (linker, Windows SDK). Building on a real Windows machine is recommended.
+
+#### 5. Install Backend Dependencies (after adding new npm packages)
+
+```bash
+cd backend
+npm install
+cd ..
+```
+
+#### 6. Install Frontend Dependencies (after adding new npm packages)
+
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+#### 7. Run Database Migrations (after schema changes)
+
+```bash
+cd backend
+npx prisma migrate dev --name your_migration_name
+cd ..
+```
+
+---
+
+### How It Works
+
+| Mode | Frontend | Backend | Who starts them? |
+|------|----------|---------|-------------------|
+| `cargo tauri dev` | `next dev` (hot-reload) | `node src/index.js` | Tauri's `beforeDevCommand` |
+| `cargo tauri build` (production) | `next start` (optimized) | `node src/index.js` | Rust code in `src/lib.rs` |
+
+In **production mode**, when the user double-clicks the app:
+1. The Tauri binary launches
+2. Rust code automatically finds `node` on the system
+3. Starts the Express backend (port 3001)
+4. Starts Next.js production server (port 3000)
+5. Opens the webview window pointing to `http://localhost:3000`
+6. When the app window is closed, both servers are killed automatically
+
+### Requirements for End Users
+
+The person running the built app needs:
+- **Node.js** installed (for running the backend + frontend servers)
+- **PostgreSQL** running (the database)
+- The full project folder (frontend + backend + node_modules) alongside the app

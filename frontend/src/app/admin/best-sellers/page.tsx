@@ -10,6 +10,20 @@ import { api, getImageUrl } from '@/lib/api';
 import { formatCurrency, getLocalizedName } from '@/lib/utils';
 import { useCartStore } from '@/store/cart-store';
 
+interface BestSeller {
+  productId: number;
+  id: number;
+  name: Record<string, string>;
+  image: string | null;
+  totalSold: number;
+  revenue: number;
+  categoryName?: string;
+  category: Record<string, string>;}
+
+interface Category {
+  id: number;
+  name: Record<string, string>;
+}
 const LABELS = {
   bestSellers: { en: 'Best Sellers', tk: 'Meşhur harytlar', ru: 'Хиты продаж', tr: 'Cok Satanlar' },
   subtitle: { en: 'Most popular items by quantity sold', tk: 'Satyş mukdary boýunça iň meşhur harytlar', ru: 'Самые популярные товары по количеству продаж', tr: 'Satilan miktara gore en popüler urunler' },
