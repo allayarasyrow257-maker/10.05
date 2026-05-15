@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -11,9 +11,10 @@ import { useCartStore } from '@/store/cart-store';
 import {
   Tablet, Lock, X, Shield, ChevronRight, Hash,
   CheckCircle, AlertCircle, Sun, Moon, ChevronDown, Check,
-  Monitor, UserCheck, UtensilsCrossed,
+  Monitor, UserCheck, UtensilsCrossed, QrCode,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { QRCodeCanvas } from 'qrcode.react';
 
 const LANGUAGES = [
   { code: 'tk', label: 'Turkmen', flag: '🇹🇲' },
@@ -59,6 +60,11 @@ export default function OptionsPage() {
   const waiterInputRef = useRef<HTMLInputElement>(null);
 
   const activeLang = LANGUAGES.find(l => l.code === language) || LANGUAGES[1];
+
+  const optionsUrl = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    return `${window.location.origin}/options`;
+  }, []);
 
   useEffect(() => {
     api.get<TableItem[]>('/tables')
@@ -325,6 +331,58 @@ export default function OptionsPage() {
             </motion.button>
           ))}
         </div>
+
+        {/* QR Code */}
+        {optionsUrl && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="mt-16 md:mt-20 flex justify-center"
+          >
+            <div className="relative group">
+              {/* Glow effect */}
+              <div className="absolute -inset-4 bg-gradient-to-br from-orange-500/20 via-red-500/10 to-purple-500/20 rounded-[2rem] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+
+              <div className="relative bg-white dark:bg-zinc-900 rounded-3xl border border-black/5 dark:border-white/5 shadow-xl p-6 sm:p-8 flex flex-col items-center">
+                {/* Header */}
+                <div className="flex items-center gap-2.5 mb-5">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg shadow-orange-500/25">
+                    <QrCode size={18} className="text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold dark:text-white leading-tight">Quick Access</p>
+                    <p className="text-[10px] text-muted-foreground">Scan to open this page</p>
+                  </div>
+                </div>
+
+                {/* QR Code with decorative frame */}
+                <div className="relative p-3 rounded-2xl bg-white shadow-inner border border-zinc-100">
+                  <QRCodeCanvas
+                    value={optionsUrl}
+                    size={160}
+                    level="H"
+                    includeMargin={false}
+                    bgColor="#ffffff"
+                    fgColor="#18181b"
+                  />
+                  {/* Center logo overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm border border-zinc-100">
+                      <UtensilsCrossed size={18} className="text-orange-500" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Corner dots decoration */}
+                <div className="absolute top-3 left-3 w-2 h-2 rounded-full bg-orange-500/30" />
+                <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-red-500/30" />
+                <div className="absolute bottom-3 left-3 w-2 h-2 rounded-full bg-purple-500/30" />
+                <div className="absolute bottom-3 right-3 w-2 h-2 rounded-full bg-pink-500/30" />
+              </div>
+            </div>
+          </motion.div>
+        )}
       </main>
 
       {/* ───── MODALS ───── */}
