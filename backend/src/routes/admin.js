@@ -13,10 +13,21 @@ const SETTINGS_FILE = path.join(__dirname, '..', 'settings.json');
 function readSettings() {
   try {
     if (fs.existsSync(SETTINGS_FILE)) {
-      return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+      const settings = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+      // Auto-expire: if maintenanceUntil is set and has passed, shut down the system
+      if (settings.maintenanceUntil && !settings.maintenance) {
+        const expiry = new Date(settings.maintenanceUntil);
+        if (expiry <= new Date()) {
+          settings.maintenance = true;
+          settings.maintenanceUntil = null;
+          writeSettings(settings);
+        }
+      }
+      return settings;
     }
   } catch { }
-  return {};
+  // Default: system starts in maintenance mode (closed)
+  return { maintenance: true };
 }
 
 function writeSettings(settings) {
@@ -46,6 +57,7 @@ router.put('/settings', authenticateToken, async (req, res) => {
     if (accentColorLight !== undefined) settings.accentColorLight = accentColorLight;
     if (accentColorDark !== undefined) settings.accentColorDark = accentColorDark;
     if (maintenance !== undefined) settings.maintenance = maintenance;
+    if (req.body.maintenanceUntil !== undefined) settings.maintenanceUntil = req.body.maintenanceUntil || null;
     if (tabletPin !== undefined) settings.tabletPin = tabletPin || null;
     if (waiterPassword !== undefined) settings.waiterPassword = waiterPassword || null;
     writeSettings(settings);

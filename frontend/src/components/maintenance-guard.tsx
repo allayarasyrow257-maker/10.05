@@ -11,8 +11,9 @@ export function MaintenanceGuard({ children }: { children: React.ReactNode }) {
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    api.get<{ maintenance?: boolean }>('/admin/settings')
+    api.get<{ maintenance?: boolean; maintenanceUntil?: string | null }>('/admin/settings')
       .then((data) => {
+        // Backend auto-checks expiry, so just use the maintenance flag
         setMaintenance(!!data.maintenance);
       })
       .catch(() => {})

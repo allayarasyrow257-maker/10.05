@@ -2,18 +2,17 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
 import { api, getImageUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Upload, X, Save, ImageIcon, Sun, Moon, Lock, Mail, Eye, EyeOff,
-  Shield, KeyRound, LogOut, ArrowLeft, AlertTriangle, Power,
+  Shield, KeyRound, LogOut, ArrowLeft, AlertTriangle, Power, Calendar, Clock,
 } from 'lucide-react';
-import { useAdminStore } from '@/store/admin-store';
 import toast from 'react-hot-toast';
 
 const MASTER_SESSION_KEY = 'master_gate_ok';
+const MASTER_TOKEN_KEY = 'master_token';
 
 interface CafeSettings {
   name?: string;
@@ -23,22 +22,32 @@ interface CafeSettings {
   accentColorLight?: string;
   accentColorDark?: string;
   maintenance?: boolean;
+  maintenanceUntil?: string | null;
+}
+
+/** Tiny helper – puts the master JWT into localStorage so api.put(..., true) picks it up */
+function setMasterToken(token: string) {
+  localStorage.setItem('token', token);
+  sessionStorage.setItem(MASTER_TOKEN_KEY, token);
+}
+function clearMasterToken() {
+  // Only clear if the token was set by us
+  if (sessionStorage.getItem(MASTER_TOKEN_KEY)) {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem(MASTER_TOKEN_KEY);
+  }
 }
 
 export default function MasterAdminPage() {
-  const router = useRouter();
-  const { user, isAuthenticated, loadFromStorage, updateAuth, logout } = useAdminStore();
-
   const [bootstrapped, setBootstrapped] = useState(false);
   const [gateOk, setGateOk] = useState(false);
 
   useEffect(() => {
-    loadFromStorage();
     if (typeof window !== 'undefined') {
       setGateOk(sessionStorage.getItem(MASTER_SESSION_KEY) === '1');
     }
     setBootstrapped(true);
-  }, [loadFromStorage]);
+  }, []);
 
   if (!bootstrapped) {
     return (
@@ -48,63 +57,30 @@ export default function MasterAdminPage() {
     );
   }
 
-  if (!isAuthenticated) {
-    return <AdminRequired onGoLogin={() => router.push('/admin')} />;
-  }
-
   if (!gateOk) {
     return (
       <MasterGate
-        onSuccess={() => {
+        onSuccess={(token) => {
           sessionStorage.setItem(MASTER_SESSION_KEY, '1');
+          setMasterToken(token);
           setGateOk(true);
         }}
-        onBack={() => router.push('/admin/dashboard')}
       />
     );
   }
 
   return (
     <MasterPanel
-      user={user}
       onLogoutGate={() => {
         sessionStorage.removeItem(MASTER_SESSION_KEY);
+        clearMasterToken();
         setGateOk(false);
       }}
-      onLogoutAdmin={() => {
-        sessionStorage.removeItem(MASTER_SESSION_KEY);
-        logout();
-        router.push('/admin');
-      }}
-      onAuthUpdated={updateAuth}
     />
   );
 }
 
-function AdminRequired({ onGoLogin }: { onGoLogin: () => void }) {
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md text-center"
-      >
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
-          <Shield size={28} className="text-amber-500" />
-        </div>
-        <h1 className="text-2xl font-bold mb-2">Admin Login Required</h1>
-        <p className="text-muted-foreground text-sm mb-6">
-          You must be signed in as admin to access this protected area.
-        </p>
-        <Button onClick={onGoLogin} className="w-full h-12">
-          Go to Admin Login
-        </Button>
-      </motion.div>
-    </div>
-  );
-}
-
-function MasterGate({ onSuccess, onBack }: { onSuccess: () => void; onBack: () => void }) {
+function MasterGate({ onSuccess }: { onSuccess: (token: string) => void }) {
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -118,9 +94,9 @@ function MasterGate({ onSuccess, onBack }: { onSuccess: () => void; onBack: () =
     }
     setSubmitting(true);
     try {
-      await api.post('/auth/master-verify', { login, password });
+      const data = await api.post<{ ok: boolean; token: string }>('/auth/master-verify', { login, password });
       toast.success('Access granted');
-      onSuccess();
+      onSuccess(data.token);
     } catch (error: any) {
       toast.error(error.message || 'Invalid credentials');
     } finally {
@@ -135,14 +111,6 @@ function MasterGate({ onSuccess, onBack }: { onSuccess: () => void; onBack: () =
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground mb-6 transition-colors"
-        >
-          <ArrowLeft size={14} />
-          Back to dashboard
-        </button>
-
         <div className="text-center mb-8">
           <motion.div
             initial={{ scale: 0.5 }}
@@ -207,7 +175,7 @@ function MasterGate({ onSuccess, onBack }: { onSuccess: () => void; onBack: () =
           </Button>
 
           <p className="text-xs text-center text-muted-foreground">
-            Even admins must authenticate again to access this area
+            Master credentials required to access this area
           </p>
         </form>
       </motion.div>
@@ -215,14 +183,7 @@ function MasterGate({ onSuccess, onBack }: { onSuccess: () => void; onBack: () =
   );
 }
 
-interface MasterPanelProps {
-  user: { id: number; email: string; name: string; role: string } | null;
-  onLogoutGate: () => void;
-  onLogoutAdmin: () => void;
-  onAuthUpdated: (token: string, user: any) => void;
-}
-
-function MasterPanel({ user, onLogoutGate, onLogoutAdmin, onAuthUpdated }: MasterPanelProps) {
+function MasterPanel({ onLogoutGate }: { onLogoutGate: () => void }) {
   const [settings, setSettings] = useState<CafeSettings>({});
   const [name, setName] = useState('');
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -230,44 +191,89 @@ function MasterPanel({ user, onLogoutGate, onLogoutAdmin, onAuthUpdated }: Maste
   const [accentDark, setAccentDark] = useState('#a78bfa');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [newEmail, setNewEmail] = useState('');
-  const [emailPassword, setEmailPassword] = useState('');
-  const [showEmailPw, setShowEmailPw] = useState(false);
-  const [changingEmail, setChangingEmail] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showCurrentPw, setShowCurrentPw] = useState(false);
-  const [showNewPw, setShowNewPw] = useState(false);
-  const [changingPassword, setChangingPassword] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [togglingMaintenance, setTogglingMaintenance] = useState(false);
+  const [showGoLiveModal, setShowGoLiveModal] = useState(false);
+  const [expiryDateTime, setExpiryDateTime] = useState('');
+  const [maintenanceUntil, setMaintenanceUntil] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    api.get<CafeSettings>('/admin/settings').then((data) => {
+    api.get<CafeSettings>('/admin/settings', true).then((data) => {
       setSettings(data);
       setName(data.name || '');
       if (data.logo) setLogoPreview(getImageUrl(data.logo));
       if (data.accentColorLight) setAccentLight(data.accentColorLight);
       if (data.accentColorDark) setAccentDark(data.accentColorDark);
       setMaintenanceMode(!!data.maintenance);
+      if (data.maintenanceUntil) setMaintenanceUntil(data.maintenanceUntil);
     }).catch(() => {});
   }, []);
 
   const handleToggleMaintenance = async (enable: boolean) => {
     if (enable && !window.confirm('Enable maintenance mode? The entire site will be shut down for all users.')) return;
+    if (!enable) {
+      // Show the Go Live modal to pick expiry date+time
+      const defaultDate = new Date();
+      defaultDate.setMonth(defaultDate.getMonth() + 1);
+      // Format as YYYY-MM-DDThh:mm for datetime-local input
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      setExpiryDateTime(
+        `${defaultDate.getFullYear()}-${pad(defaultDate.getMonth() + 1)}-${pad(defaultDate.getDate())}T${pad(defaultDate.getHours())}:${pad(defaultDate.getMinutes())}`
+      );
+      setShowGoLiveModal(true);
+      return;
+    }
     setTogglingMaintenance(true);
     try {
-      const updated = await api.put<CafeSettings>('/admin/settings', { maintenance: enable }, true);
+      const updated = await api.put<CafeSettings>('/admin/settings', { maintenance: true, maintenanceUntil: null }, true);
       setSettings(updated);
-      setMaintenanceMode(!!updated.maintenance);
-      toast.success(enable ? 'Maintenance mode enabled — site is now offline' : 'Maintenance mode disabled — site is back online');
+      setMaintenanceMode(true);
+      setMaintenanceUntil(null);
+      toast.success('Maintenance mode enabled — site is now offline');
     } catch (error: any) {
       toast.error(error.message || 'Failed to toggle maintenance');
     } finally {
       setTogglingMaintenance(false);
     }
+  };
+
+  const handleGoLive = async () => {
+    if (!expiryDateTime) {
+      toast.error('Please select a date and time');
+      return;
+    }
+    const selectedDate = new Date(expiryDateTime);
+    if (selectedDate <= new Date()) {
+      toast.error('Expiry must be in the future');
+      return;
+    }
+    setTogglingMaintenance(true);
+    try {
+      const updated = await api.put<CafeSettings>('/admin/settings', {
+        maintenance: false,
+        maintenanceUntil: selectedDate.toISOString(),
+      }, true);
+      setSettings(updated);
+      setMaintenanceMode(false);
+      setMaintenanceUntil(updated.maintenanceUntil || null);
+      setShowGoLiveModal(false);
+      toast.success('Site is now live until ' + selectedDate.toLocaleString());
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to go live');
+    } finally {
+      setTogglingMaintenance(false);
+    }
+  };
+
+  /** Set expiryDateTime to N months from now, keeping current time */
+  const setQuickExpiry = (months: number) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + months);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    setExpiryDateTime(
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    );
   };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -296,58 +302,6 @@ function MasterPanel({ user, onLogoutGate, onLogoutAdmin, onAuthUpdated }: Maste
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleChangeEmail = async () => {
-    if (!newEmail || !emailPassword) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-    setChangingEmail(true);
-    try {
-      const data = await api.put<{ token: string; user: any }>('/auth/change-email', {
-        newEmail,
-        password: emailPassword,
-      }, true);
-      onAuthUpdated(data.token, data.user);
-      toast.success('Email changed successfully');
-      setNewEmail('');
-      setEmailPassword('');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to change email');
-    } finally {
-      setChangingEmail(false);
-    }
-  };
-
-  const handleChangePassword = async () => {
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      toast.error('Please fill in all password fields');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      toast.error('New passwords do not match');
-      return;
-    }
-    if (newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters');
-      return;
-    }
-    setChangingPassword(true);
-    try {
-      await api.put('/auth/change-password', {
-        currentPassword,
-        newPassword,
-      }, true);
-      toast.success('Password changed successfully');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to change password');
-    } finally {
-      setChangingPassword(false);
-    }
-  };
-
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -366,6 +320,18 @@ function MasterPanel({ user, onLogoutGate, onLogoutAdmin, onAuthUpdated }: Maste
     }
   };
 
+  /** Format an ISO date for display */
+  const formatExpiry = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-black/5 dark:border-white/5 px-6 py-4">
@@ -376,7 +342,7 @@ function MasterPanel({ user, onLogoutGate, onLogoutAdmin, onAuthUpdated }: Maste
             </div>
             <div>
               <h1 className="font-bold text-sm leading-tight">Master Admin</h1>
-              <p className="text-[11px] text-muted-foreground">{user?.email}</p>
+              <p className="text-[11px] text-muted-foreground">System Control Panel</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -400,21 +366,126 @@ function MasterPanel({ user, onLogoutGate, onLogoutAdmin, onAuthUpdated }: Maste
             </button>
             <button
               onClick={onLogoutGate}
-              className="text-xs px-3 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors flex items-center gap-1.5"
-            >
-              <Lock size={14} />
-              Lock
-            </button>
-            <button
-              onClick={onLogoutAdmin}
               className="text-xs px-3 py-2 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors flex items-center gap-1.5"
             >
-              <LogOut size={14} />
-              Sign out
+              <Lock size={14} />
+              Lock & Exit
             </button>
           </div>
         </div>
       </header>
+
+      {/* Go Live Modal – date + time picker */}
+      {showGoLiveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl border border-white/10 shadow-2xl overflow-hidden"
+          >
+            <div className="p-6 space-y-5">
+              <div className="text-center">
+                <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
+                  <Calendar size={24} className="text-emerald-500" />
+                </div>
+                <h2 className="text-xl font-bold">Go Live</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Select the date and time until which the system will remain active.
+                  After this moment, the system will automatically shut down.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Clock size={16} />
+                  Active until (date & time):
+                </label>
+                <input
+                  type="datetime-local"
+                  value={expiryDateTime}
+                  onChange={(e) => setExpiryDateTime(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:outline-none focus:border-emerald-500/50 transition-colors text-base"
+                />
+
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    { label: '1 Month', months: 1 },
+                    { label: '3 Months', months: 3 },
+                    { label: '6 Months', months: 6 },
+                    { label: '1 Year', months: 12 },
+                  ].map(({ label, months }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => setQuickExpiry(months)}
+                      className="text-xs px-3 py-2 rounded-xl border transition-colors font-medium bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {expiryDateTime && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    System will be active until{' '}
+                    <span className="font-semibold text-foreground">
+                      {new Date(expiryDateTime).toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowGoLiveModal(false)}
+                  className="flex-1 px-4 py-3 rounded-xl bg-zinc-100 dark:bg-white/5 text-sm font-medium hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleGoLive}
+                  disabled={togglingMaintenance || !expiryDateTime}
+                  className="flex-1 px-4 py-3 rounded-xl bg-emerald-500 text-white text-sm font-bold hover:bg-emerald-600 transition-colors disabled:opacity-50"
+                >
+                  {togglingMaintenance ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                  ) : (
+                    'Activate'
+                  )}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Active Until Banner */}
+      {!maintenanceMode && maintenanceUntil && (
+        <div className="max-w-3xl mx-auto px-6 pt-4">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+            <Calendar size={18} className="text-emerald-500 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-emerald-500">System Active</p>
+              <p className="text-xs text-emerald-500/70">
+                Active until {formatExpiry(maintenanceUntil)}
+              </p>
+            </div>
+            <button
+              onClick={() => handleToggleMaintenance(true)}
+              disabled={togglingMaintenance}
+              className="text-xs px-3 py-1.5 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors shrink-0"
+            >
+              Shutdown Now
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Maintenance Banner */}
       {maintenanceMode && (
@@ -440,7 +511,7 @@ function MasterPanel({ user, onLogoutGate, onLogoutAdmin, onAuthUpdated }: Maste
         <div>
           <h2 className="text-2xl font-bold">Cafe Configuration</h2>
           <p className="text-muted-foreground text-sm">
-            Branding, theme colors and login email
+            Branding and theme colors
           </p>
         </div>
 
@@ -635,149 +706,6 @@ function MasterPanel({ user, onLogoutGate, onLogoutAdmin, onAuthUpdated }: Maste
               </>
             )}
           </Button>
-        </motion.div>
-
-        {/* Change Email */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-          <Card>
-            <CardContent>
-              <div className="flex items-center gap-2 mb-4">
-                <Shield size={20} className="text-purple-400" />
-                <h3 className="text-lg font-semibold">Change Login Email</h3>
-              </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                Current: <span className="font-mono text-foreground">{user?.email}</span>
-              </p>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">New Email</label>
-                  <div className="relative">
-                    <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      type="email"
-                      value={newEmail}
-                      onChange={(e) => setNewEmail(e.target.value)}
-                      placeholder="new@email.com"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/10 focus:outline-none focus:border-purple-500/50 transition-colors text-sm"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Confirm with Password</label>
-                  <div className="relative">
-                    <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      type={showEmailPw ? 'text' : 'password'}
-                      value={emailPassword}
-                      onChange={(e) => setEmailPassword(e.target.value)}
-                      placeholder="Current password"
-                      className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white/5 border border-white/10 focus:outline-none focus:border-purple-500/50 transition-colors text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowEmailPw(!showEmailPw)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showEmailPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-                <Button
-                  variant="secondary"
-                  onClick={handleChangeEmail}
-                  disabled={changingEmail || !newEmail || !emailPassword}
-                  className="w-full"
-                >
-                  {changingEmail ? (
-                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                  ) : (
-                    <Mail size={16} className="mr-2" />
-                  )}
-                  {changingEmail ? 'Updating...' : 'Update Email'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Change Password */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-          <Card>
-            <CardContent>
-              <div className="flex items-center gap-2 mb-4">
-                <KeyRound size={20} className="text-purple-400" />
-                <h3 className="text-lg font-semibold">Change Password</h3>
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Current Password</label>
-                  <div className="relative">
-                    <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      type={showCurrentPw ? 'text' : 'password'}
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      placeholder="Current password"
-                      className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white/5 border border-white/10 focus:outline-none focus:border-purple-500/50 transition-colors text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowCurrentPw(!showCurrentPw)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showCurrentPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">New Password</label>
-                  <div className="relative">
-                    <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      type={showNewPw ? 'text' : 'password'}
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="New password (min 6 chars)"
-                      className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white/5 border border-white/10 focus:outline-none focus:border-purple-500/50 transition-colors text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowNewPw(!showNewPw)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showNewPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Confirm New Password</label>
-                  <div className="relative">
-                    <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm new password"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/10 focus:outline-none focus:border-purple-500/50 transition-colors text-sm"
-                    />
-                  </div>
-                </div>
-                <Button
-                  variant="secondary"
-                  onClick={handleChangePassword}
-                  disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
-                  className="w-full"
-                >
-                  {changingPassword ? (
-                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                  ) : (
-                    <KeyRound size={16} className="mr-2" />
-                  )}
-                  {changingPassword ? 'Updating...' : 'Update Password'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         </motion.div>
       </main>
     </div>

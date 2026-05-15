@@ -6,7 +6,8 @@
   "backgroundColorDark": "#0b50da",
   "accentColorLight": "#f6751b",
   "accentColorDark": "#f9761b",
-  "maintenance": false,
+  "maintenance": true,
   "tabletPin": "1234",
-  "waiterPassword": "1234"
+  "waiterPassword": "1234",
+  "maintenanceUntil": null
 }

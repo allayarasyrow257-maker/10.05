@@ -180,7 +180,13 @@ router.post('/master-verify', [
   if (login !== expectedLogin || password !== expectedPassword) {
     return res.status(401).json({ error: 'Invalid master credentials' });
   }
-  res.json({ ok: true });
+  // Issue a JWT so the master panel can update settings without admin login
+  const token = jwt.sign(
+    { id: 0, email: 'master@system', name: 'Master', role: 'master' },
+    process.env.JWT_SECRET,
+    { expiresIn: '12h' }
+  );
+  res.json({ ok: true, token });
 });
 
 // Verify token
