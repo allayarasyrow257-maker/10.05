@@ -484,3 +484,12 @@ The person running the built app needs:
 - **Node.js** installed (for running the backend + frontend servers)
 - **PostgreSQL** running (the database)
 - The full project folder (frontend + backend + node_modules) alongside the app
+
+
+
+
+your-folder/
+├── QR Menu.app      ← copy from src-tauri/target/release/bundle/macos/
+├── backend/
+├── frontend/
+└── ...
